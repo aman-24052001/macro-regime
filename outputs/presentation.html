@@ -325,9 +325,9 @@
 <nav>
   <div class="nav-brand">Aman · <span>Macro Regime Strategy</span></div>
   <div class="nav-links">
-    <a href="#how">How It Works</a>
     <a href="#results">Results</a>
     <a href="#crisis">Crisis Test</a>
+    <a href="#how">How It Works</a>
     <a href="#signals">Signals</a>
     <a href="#risk">Risk Metrics</a>
   </div>
@@ -340,9 +340,9 @@
     <div class="hero-tag">Quantitative Portfolio Strategy · OOS 2006–2026</div>
     <h1>Adaptive <em>Macro Regime</em><br>Detection &amp; ETF Rotation</h1>
     <p class="hero-sub">
-      A fully systematic strategy that reads 12 economic indicators monthly, detects the current
-      economic regime using a Hidden Markov Model, and rotates a 6-asset ETF portfolio accordingly —
-      with no human discretion in execution.
+      Markets don't announce regime changes. By the time a recession is declared, portfolios are
+      already down 20–40%. This project builds the early-warning system — reading 12 macro signals
+      monthly to detect the shift <em>before</em> it hits prices, then rotating automatically.
     </p>
 
     <div class="kpi-strip">
@@ -433,6 +433,14 @@
     <div class="sec-label">Performance</div>
     <h2>20-Year Out-of-Sample Results</h2>
     <p class="sec-desc">Trained on 1991–2005. Tested blind on 2006–2026 — including three major crises.</p>
+
+    <p style="font-size:14px; color:var(--muted); margin-bottom:16px; line-height:1.7;">
+      <strong style="color:var(--text);">The deliberate trade-off:</strong> SPY earned more in
+      absolute dollars — $779 vs $510 on $100 invested. The strategy traded ~2% of annual return
+      for 60% less drawdown, faster recovery, and <strong style="color:var(--green);">+3.4% during
+      the 2008 financial crisis</strong> while SPY fell 46%. That's not underperformance —
+      it's a different objective function.
+    </p>
 
     <!-- EQUITY CURVE CHART -->
     <div class="card" style="margin-bottom:20px;">
@@ -685,54 +693,42 @@
         <div class="signal-icon">📉</div>
         <div>
           <h4>Yield Curve Shape</h4>
-          <p>The gap between 10-year and 2-year Treasury yields. When short rates exceed long rates
-          (inversion), it has predicted every US recession since 1970, typically 12–18 months in advance.
-          The single most predictive feature.</p>
+          <p>10Y minus 2Y Treasury spread. Inversion has predicted every US recession since 1970 — typically 12–18 months early. The single most predictive feature.</p>
         </div>
       </div>
       <div class="signal-card">
         <div class="signal-icon">💳</div>
         <div>
           <h4>Credit Spread (BAA)</h4>
-          <p>The extra yield investors demand to hold corporate bonds vs safe government bonds.
-          Widens sharply when fear rises. Credit markets typically react to recession risk
-          <em>before</em> equity markets do.</p>
+          <p>Extra yield on corporate vs government bonds. Widens sharply when fear rises — credit markets flash red <em>before</em> equities react.</p>
         </div>
       </div>
       <div class="signal-card">
         <div class="signal-icon">💼</div>
         <div>
           <h4>Employment Signals</h4>
-          <p>Two measures: Unemployment Rate (monthly) and Initial Jobless Claims (weekly, rolled monthly).
-          Jobless claims spike fast at economic turning points — giving early warning before monthly
-          unemployment data confirms the trend.</p>
+          <p>Unemployment rate (monthly) + initial jobless claims (weekly). Claims spike fast at turning points — early warning before unemployment data confirms.</p>
         </div>
       </div>
       <div class="signal-card">
         <div class="signal-icon">🏭</div>
         <div>
           <h4>Industrial Output &amp; GDP</h4>
-          <p>Industrial Production (monthly) and Real GDP (quarterly, vintage data).
-          The YoY growth rate captures business cycle momentum. GDP uses ALFRED vintage —
-          the number that was actually published at the time, not later-revised figures.</p>
+          <p>Industrial production (monthly) and real GDP YoY (quarterly, ALFRED vintage). Uses numbers as published — no revision bias.</p>
         </div>
       </div>
       <div class="signal-card">
         <div class="signal-icon">🔥</div>
         <div>
           <h4>Inflation (CPI)</h4>
-          <p>High inflation constrains the Federal Reserve from cutting rates even when the economy slows —
-          the "stagflation" scenario. 2022 is the textbook example: Fed kept hiking even as growth stalled,
-          creating simultaneous losses in stocks and bonds.</p>
+          <p>High CPI locks the Fed into hiking even as growth stalls — the stagflation trap. 2022 is the textbook case: stocks and bonds fell simultaneously.</p>
         </div>
       </div>
       <div class="signal-card">
         <div class="signal-icon">🏦</div>
         <div>
-          <h4>Fed Funds Rate &amp; Money Supply</h4>
-          <p>The Fed's policy rate and M2 money supply growth. Sharp rate-hiking cycles have preceded
-          every major recession since 1980. M2 contraction (rare — only seen in 2022–23 and 1938)
-          signals severe credit tightening.</p>
+          <h4>Fed Funds &amp; Money Supply</h4>
+          <p>Policy rate stance and M2 growth. Aggressive hiking cycles precede every major recession; M2 contraction (rare) signals severe credit tightening.</p>
         </div>
       </div>
     </div>
@@ -805,6 +801,38 @@
           TC is the dominant sensitivity — strategy survives up to ~20bps.
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- TAKEAWAY -->
+  <section id="takeaway" style="padding-bottom:32px;">
+    <div class="sec-label">Bottom Line</div>
+    <h2>Why This Matters</h2>
+    <div class="card" style="border-color:rgba(88,166,255,.25); background:rgba(31,111,235,.05);">
+      <p style="font-size:15px; line-height:1.8; margin-bottom:16px;">
+        Most portfolios are built for one regime and left to survive all others. This project builds
+        a system that <strong>reads the economic environment monthly</strong> and adjusts exposure
+        accordingly — the same logic that institutional allocators apply with full research teams,
+        automated from public data alone.
+      </p>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:4px;">
+        <div style="text-align:center; padding:12px; background:rgba(0,0,0,.2); border-radius:8px;">
+          <div style="font-size:22px; font-weight:800; color:var(--green); font-family:var(--mono);">60%</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px;">Less drawdown than SPY</div>
+        </div>
+        <div style="text-align:center; padding:12px; background:rgba(0,0,0,.2); border-radius:8px;">
+          <div style="font-size:22px; font-weight:800; color:var(--blue); font-family:var(--mono);">+3.4%</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px;">During 2008 (SPY −46%)</div>
+        </div>
+        <div style="text-align:center; padding:12px; background:rgba(0,0,0,.2); border-radius:8px;">
+          <div style="font-size:22px; font-weight:800; color:var(--green); font-family:var(--mono);">0.937</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px;">Sharpe — 23% above SPY</div>
+        </div>
+      </div>
+      <p style="font-size:13px; color:var(--muted); margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
+        The goal was never to beat SPY in a bull market. It was to build something that holds up when
+        it matters most — and to prove it on 20 years of out-of-sample data, not a backfit curve.
+      </p>
     </div>
   </section>
 
