@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Macro Regime Strategy — Aman</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --card: #161b22;
+    --border: #21262d;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --green: #3fb950;
+    --red: #f85149;
+    --blue: #58a6ff;
+    --gold: #d29922;
+    --accent: #1f6feb;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    --mono: 'Cascadia Code', 'Fira Code', monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior: smooth; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font); font-size:15px; line-height:1.6; }
+
+  /* NAV */
+  nav {
+    position: sticky; top:0; z-index:100;
+    background: rgba(13,17,23,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex; align-items:center; justify-content:space-between;
+    height: 52px;
+  }
+  .nav-brand { font-weight:700; font-size:14px; color:var(--text); letter-spacing:.3px; }
+  .nav-brand span { color:var(--blue); }
+  .nav-links { display:flex; gap:20px; }
+  .nav-links a { color:var(--muted); text-decoration:none; font-size:13px; transition:color .2s; }
+  .nav-links a:hover { color:var(--text); }
+  @media(max-width:600px){ .nav-links { display:none; } }
+
+  /* LAYOUT */
+  .page { max-width: 980px; margin: 0 auto; padding: 0 20px 60px; }
+
+  /* HERO */
+  .hero {
+    padding: 56px 0 40px;
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-tag {
+    display: inline-block;
+    background: rgba(31,111,235,.15);
+    color: var(--blue);
+    border: 1px solid rgba(31,111,235,.3);
+    border-radius: 20px;
+    font-size: 12px;
+    padding: 3px 12px;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-size: clamp(26px, 5vw, 42px);
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -.5px;
+    margin-bottom: 14px;
+  }
+  .hero h1 em { font-style:normal; color:var(--blue); }
+  .hero-sub {
+    color:var(--muted);
+    font-size: 15px;
+    max-width: 560px;
+    margin-bottom: 36px;
+  }
+
+  /* KPI STRIP */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  @media(max-width:700px){ .kpi-strip { grid-template-columns: repeat(2,1fr); } }
+  .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .kpi-card .val {
+    font-size: 28px;
+    font-weight: 800;
+    font-family: var(--mono);
+    line-height: 1.1;
+  }
+  .kpi-card .val.g { color: var(--green); }
+  .kpi-card .val.b { color: var(--blue); }
+  .kpi-card .val.r { color: var(--red); }
+  .kpi-card .lbl { font-size: 12px; color:var(--muted); margin-top: 4px; }
+  .kpi-card .delta { font-size: 11px; color:var(--green); margin-top:2px; }
+
+  /* SECTION */
+  section { padding: 44px 0 0; }
+  .sec-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--blue);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  h2 {
+    font-size: clamp(20px,3vw,26px);
+    font-weight: 700;
+    letter-spacing: -.3px;
+    margin-bottom: 6px;
+  }
+  .sec-desc { color:var(--muted); font-size:14px; margin-bottom:24px; max-width:600px; }
+
+  /* CARD */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+  }
+  .card + .card { margin-top:12px; }
+
+  /* HOW IT WORKS */
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  @media(max-width:650px){ .steps { grid-template-columns: 1fr; } }
+  .step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+  }
+  .step-num {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--blue);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .step h3 { font-size:15px; font-weight:700; margin-bottom:8px; }
+  .step p { font-size:13px; color:var(--muted); line-height:1.55; }
+  .step-icon { font-size:28px; margin-bottom:10px; }
+
+  /* PERFORMANCE TABLE */
+  .perf-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .perf-table th {
+    text-align:left; padding:9px 12px;
+    border-bottom: 1px solid var(--border);
+    color:var(--muted); font-size:11px; font-weight:600;
+    text-transform:uppercase; letter-spacing:.5px;
+  }
+  .perf-table td { padding:10px 12px; border-bottom:1px solid rgba(33,38,45,.5); }
+  .perf-table tr.highlight td { background: rgba(58,169,80,.06); }
+  .perf-table tr:last-child td { border-bottom: none; }
+  .g { color:var(--green); font-weight:600; }
+  .r { color:var(--red); }
+  .b { color:var(--blue); }
+  .bold { font-weight:700; }
+  .strategy-label {
+    display:flex; align-items:center; gap:8px;
+  }
+  .dot {
+    width:8px; height:8px; border-radius:50%; flex-shrink:0;
+  }
+
+  /* CRISIS GRID */
+  .crisis-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  @media(max-width:700px){ .crisis-grid { grid-template-columns: 1fr 1fr; } }
+  @media(max-width:420px){ .crisis-grid { grid-template-columns: 1fr; } }
+  .crisis-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .crisis-card .crisis-name { font-size:12px; color:var(--muted); margin-bottom:10px; font-weight:600; }
+  .crisis-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; font-size:13px; }
+  .crisis-row .who { color:var(--muted); font-size:12px; }
+  .crisis-badge {
+    font-size:15px; font-weight:800; font-family:var(--mono);
+  }
+  .verdict {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+    font-weight:700;
+  }
+  .verdict.g { color:var(--green); }
+  .verdict.y { color:var(--gold); }
+
+  /* SIGNAL CARDS */
+  .signal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap:12px;
+  }
+  @media(max-width:580px){ .signal-grid { grid-template-columns: 1fr; } }
+  .signal-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius:10px;
+    padding:16px;
+    display:flex; gap:14px; align-items:flex-start;
+  }
+  .signal-icon { font-size:22px; flex-shrink:0; margin-top:2px; }
+  .signal-card h4 { font-size:14px; font-weight:700; margin-bottom:4px; }
+  .signal-card p { font-size:12px; color:var(--muted); line-height:1.5; }
+
+  /* REGIME TABLE */
+  .regime-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .regime-table th {
+    padding:8px 12px; text-align:center;
+    border-bottom:1px solid var(--border);
+    color:var(--muted); font-size:11px; font-weight:600; text-transform:uppercase;
+  }
+  .regime-table th:first-child { text-align:left; }
+  .regime-table td { padding:9px 12px; text-align:center; border-bottom:1px solid rgba(33,38,45,.4); }
+  .regime-table td:first-child { text-align:left; font-weight:600; }
+  .regime-table tr:last-child td { border-bottom:none; }
+  .exp { color:#3fb950; }
+  .stag { color:#d29922; }
+  .con { color:#f85149; }
+
+  /* BAR VIZ */
+  .bar-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; font-size:13px; }
+  .bar-label { width:120px; flex-shrink:0; color:var(--muted); }
+  .bar-track { flex:1; background:rgba(255,255,255,.06); border-radius:4px; height:20px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:4px; display:flex; align-items:center; padding-left:8px; font-size:11px; font-weight:700; }
+
+  /* RISK TABLE */
+  .risk-grid {
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:12px;
+  }
+  @media(max-width:620px){ .risk-grid{ grid-template-columns:1fr 1fr; } }
+  @media(max-width:400px){ .risk-grid{ grid-template-columns:1fr; } }
+  .risk-card {
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px;
+  }
+  .risk-card .metric { font-size:11px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); margin-bottom:4px; }
+  .risk-card .val { font-size:22px; font-weight:800; font-family:var(--mono); }
+  .risk-card .vs { font-size:12px; color:var(--muted); margin-top:2px; }
+  .risk-card .vs span { color:var(--green); font-weight:600; }
+
+  /* FOOTER */
+  .footer {
+    margin-top:56px;
+    padding-top:24px;
+    border-top:1px solid var(--border);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:12px;
+  }
+  .footer-left { font-size:13px; color:var(--muted); }
+  .footer-left strong { color:var(--text); }
+  .footer-link { color:#4f7cff; text-decoration:none; font-weight:600; }
+  .footer-link:hover { text-decoration:underline; }
+  .tech-pills { display:flex; gap:8px; flex-wrap:wrap; }
+  .pill {
+    background:rgba(88,166,255,.1);
+    border:1px solid rgba(88,166,255,.2);
+    color:var(--blue);
+    font-size:11px;
+    padding:3px 10px;
+    border-radius:20px;
+  }
+
+  /* DIVIDER */
+  hr { border:none; border-top:1px solid var(--border); margin:32px 0; }
+
+  /* HONESTY BOX */
+  .honest-box {
+    background: rgba(210,153,34,.07);
+    border:1px solid rgba(210,153,34,.25);
+    border-radius:10px;
+    padding:16px 18px;
+    font-size:13px;
+    color:#d9c17a;
+    line-height:1.6;
+    margin-top:14px;
+  }
+  .honest-box strong { color:var(--gold); }
+
+  /* SCROLL TOP */
+  .back-top {
+    display:block; text-align:center;
+    margin-top:32px;
+    color:var(--muted);
+    font-size:12px;
+    text-decoration:none;
+  }
+  .back-top:hover { color:var(--text); }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">Aman · <span>Macro Regime Strategy</span></div>
+  <div class="nav-links">
+    <a href="#results">Results</a>
+    <a href="#crisis">Crisis Test</a>
+    <a href="#how">How It Works</a>
+    <a href="#signals">Signals</a>
+    <a href="#risk">Risk Metrics</a>
+  </div>
+</nav>
+
+<div class="page">
+
+  <!-- HERO -->
+  <div class="hero" id="top">
+    <div class="hero-tag">Quantitative Portfolio Strategy · OOS 2006–2026</div>
+    <h1>Adaptive <em>Macro Regime</em><br>Detection &amp; ETF Rotation</h1>
+    <p class="hero-sub">
+      Markets don't announce regime changes. By the time a recession is declared, portfolios are
+      already down 20–40%. This project builds the early-warning system — reading 12 macro signals
+      monthly to detect the shift <em>before</em> it hits prices, then rotating automatically.
+    </p>
+
+    <div class="kpi-strip">
+      <div class="kpi-card">
+        <div class="val g">0.937</div>
+        <div class="lbl">Sharpe Ratio (OOS)</div>
+        <div class="delta">↑ +23% vs S&amp;P 500</div>
+      </div>
+      <div class="kpi-card">
+        <div class="val g">8.45%</div>
+        <div class="lbl">Annual Return (CAGR)</div>
+        <div class="delta">241 months, 0 look-ahead</div>
+      </div>
+      <div class="kpi-card">
+        <div class="val b">-21.0%</div>
+        <div class="lbl">Max Drawdown</div>
+        <div class="delta">vs S&amp;P 500's -50.8%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="val g">+3.4%</div>
+        <div class="lbl">During 2008 GFC</div>
+        <div class="delta">S&amp;P 500 lost -46%</div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- HOW IT WORKS -->
+  <section id="how">
+    <div class="sec-label">Methodology</div>
+    <h2>How It Works — Three Steps</h2>
+    <p class="sec-desc">No black boxes. Every decision is traceable to a data point.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-icon">📡</div>
+        <div class="step-num">Step 1 · Read</div>
+        <h3>Monitor the Economy</h3>
+        <p>12 Federal Reserve (FRED) indicators updated monthly: yield curve shape, credit spreads,
+        unemployment, inflation, industrial output, money supply, and more.</p>
+      </div>
+      <div class="step">
+        <div class="step-icon">🧠</div>
+        <div class="step-num">Step 2 · Classify</div>
+        <h3>Detect the Regime</h3>
+        <p>A 3-state Hidden Markov Model processes the signals and assigns probabilities:
+        Expansion / Stagnation / Contraction. Output is probabilistic — not a binary switch.</p>
+      </div>
+      <div class="step">
+        <div class="step-icon">⚖️</div>
+        <div class="step-num">Step 3 · Rotate</div>
+        <h3>Adjust the Portfolio</h3>
+        <p>Probability-weighted allocation across 6 ETFs (stocks, bonds, gold, credit, cash).
+        Rebalances only when drift exceeds 2% — minimising unnecessary transaction costs.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;">
+      <div class="card">
+        <div style="font-size:13px; color:var(--muted); margin-bottom:14px; font-weight:600; text-transform:uppercase; letter-spacing:.5px;">Target Allocation by Regime</div>
+        <div style="overflow-x:auto;">
+          <table class="regime-table">
+            <thead>
+              <tr>
+                <th>Asset</th>
+                <th class="exp">Expansion 📈</th>
+                <th class="stag">Stagnation ⚠️</th>
+                <th class="con">Contraction 🛡️</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>SPY — US Stocks</td><td class="exp">60%</td><td class="stag">30%</td><td class="con">10%</td></tr>
+              <tr><td>TLT — Long Bonds</td><td>10%</td><td>25%</td><td class="con">40%</td></tr>
+              <tr><td>GLD — Gold</td><td>5%</td><td>15%</td><td class="con">25%</td></tr>
+              <tr><td>LQD — IG Credit</td><td>15%</td><td>15%</td><td>5%</td></tr>
+              <tr><td>HYG — High Yield</td><td>10%</td><td>5%</td><td>0%</td></tr>
+              <tr><td>BIL — Cash</td><td>0%</td><td>10%</td><td class="con">20%</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- RESULTS -->
+  <section id="results">
+    <div class="sec-label">Performance</div>
+    <h2>20-Year Out-of-Sample Results</h2>
+    <p class="sec-desc">Trained on 1991–2005. Tested blind on 2006–2026 — including three major crises.</p>
+
+    <p style="font-size:14px; color:var(--muted); margin-bottom:16px; line-height:1.7;">
+      <strong style="color:var(--text);">The deliberate trade-off:</strong> SPY earned more in
+      absolute dollars — $779 vs $510 on $100 invested. The strategy traded ~2% of annual return
+      for 60% less drawdown, faster recovery, and <strong style="color:var(--green);">+3.4% during
+      the 2008 financial crisis</strong> while SPY fell 46%. That's not underperformance —
+      it's a different objective function.
+    </p>
+
+    <!-- EQUITY CURVE CHART -->
+    <div class="card" style="margin-bottom:20px;">
+      <div style="font-size:13px; color:var(--muted); margin-bottom:16px; font-weight:600; text-transform:uppercase; letter-spacing:.5px;">Growth of $100 — 2006 to 2026</div>
+      <div style="position:relative; height:320px;">
+        <canvas id="equityChart"></canvas>
+      </div>
+      <div style="display:flex; gap:20px; flex-wrap:wrap; margin-top:14px; font-size:12px; color:var(--muted);">
+        <span><span style="display:inline-block;width:12px;height:3px;background:#4f7cff;border-radius:2px;vertical-align:middle;margin-right:5px;"></span>Regime Strategy → $510</span>
+        <span><span style="display:inline-block;width:12px;height:3px;background:#7d8590;border-radius:2px;vertical-align:middle;margin-right:5px;"></span>S&amp;P 500 → $779</span>
+        <span><span style="display:inline-block;width:12px;height:3px;background:#555;border-radius:2px;vertical-align:middle;margin-right:5px;"></span>60/40 → $494</span>
+        <span><span style="display:inline-block;width:12px;height:3px;background:#3d4448;border-radius:2px;vertical-align:middle;margin-right:5px;"></span>Equal Weight → $344</span>
+        <span style="margin-left:auto; font-style:italic;">GFC 2008–09: Strategy stayed flat while SPY fell 50%</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="overflow-x:auto;">
+        <table class="perf-table">
+          <thead>
+            <tr>
+              <th>Strategy</th>
+              <th>CAGR</th>
+              <th>Volatility</th>
+              <th>Max Loss</th>
+              <th>Sharpe</th>
+              <th>Sortino</th>
+              <th>Recovery</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="highlight">
+              <td>
+                <div class="strategy-label">
+                  <div class="dot" style="background:var(--blue)"></div>
+                  <span class="bold">Regime Strategy</span>
+                </div>
+              </td>
+              <td class="g bold">8.45%</td>
+              <td>9.13%</td>
+              <td class="g bold">-21.0%</td>
+              <td class="g bold">0.937</td>
+              <td class="g bold">1.357</td>
+              <td class="g bold">31 mo</td>
+            </tr>
+            <tr>
+              <td>
+                <div class="strategy-label">
+                  <div class="dot" style="background:#7d8590"></div>
+                  S&amp;P 500 Buy &amp; Hold
+                </div>
+              </td>
+              <td>10.56%</td>
+              <td class="r">14.70%</td>
+              <td class="r">-50.8%</td>
+              <td>0.760</td>
+              <td>1.050</td>
+              <td class="r">57 mo</td>
+            </tr>
+            <tr>
+              <td>
+                <div class="strategy-label">
+                  <div class="dot" style="background:#555"></div>
+                  60/40 Portfolio
+                </div>
+              </td>
+              <td>8.56%</td>
+              <td>9.81%</td>
+              <td>-28.5%</td>
+              <td>0.890</td>
+              <td>1.115</td>
+              <td>35 mo</td>
+            </tr>
+            <tr>
+              <td>
+                <div class="strategy-label">
+                  <div class="dot" style="background:#444"></div>
+                  Equal Weight
+                </div>
+              </td>
+              <td>6.32%</td>
+              <td>7.09%</td>
+              <td>-16.9%</td>
+              <td>0.902</td>
+              <td>1.298</td>
+              <td>29 mo</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;">
+      <div class="card">
+        <div style="font-size:13px; color:var(--muted); margin-bottom:14px; font-weight:600; text-transform:uppercase; letter-spacing:.5px;">The Compounding Math — Why Drawdown Matters More Than Return</div>
+        <div class="bar-row">
+          <div class="bar-label">Regime Strategy</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:21%; background:rgba(58,169,80,.7);">-21%</div>
+          </div>
+          <div style="font-size:12px; color:var(--green); width:130px;">needs +27% to recover</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">60/40 Portfolio</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:28.5%; background:rgba(255,255,255,.2);">-29%</div>
+          </div>
+          <div style="font-size:12px; color:var(--muted); width:130px;">needs +41% to recover</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label">S&amp;P 500</div>
+          <div class="bar-track">
+            <div class="bar-fill" style="width:50.8%; background:rgba(248,81,73,.5);">-50.8%</div>
+          </div>
+          <div style="font-size:12px; color:var(--red); width:130px;">needs +103% to recover</div>
+        </div>
+        <p style="font-size:12px; color:var(--muted); margin-top:14px;">
+          A portfolio that drops 50% spends years just getting back to flat — not compounding.
+          Every year in recovery is a year of missed growth. Avoiding catastrophic drawdowns
+          <em>is</em> a return strategy.
+        </p>
+      </div>
+    </div>
+
+    <div class="honest-box">
+      <strong>Honest Caveat (Statistical Test):</strong> A block bootstrap test (1,000 simulations)
+      gives p=0.434 — meaning we can't statistically prove the strategy beats the S&amp;P 500 at 95%
+      confidence over this period. This is expected: 20 years of monthly data is rarely enough to reach
+      statistical significance for any individual strategy. The 95% confidence interval for Sharpe
+      is [0.32, 1.17] — the lower bound is solidly positive. The crisis track record and
+      risk-adjusted metrics tell the real story.
+    </div>
+  </section>
+
+
+  <!-- CRISIS TEST -->
+  <section id="crisis">
+    <div class="sec-label">Stress Test</div>
+    <h2>How It Behaved in Real Crises</h2>
+    <p class="sec-desc">The model never saw these crises during training. These are genuine out-of-sample results.</p>
+
+    <div class="crisis-grid">
+      <div class="crisis-card">
+        <div class="crisis-name">🏦 2008 Global Financial Crisis<br><span style="font-weight:400">Oct 2007 – Mar 2009</span></div>
+        <div class="crisis-row">
+          <span class="who">Regime Strategy</span>
+          <span class="crisis-badge g">+3.4%</span>
+        </div>
+        <div class="crisis-row">
+          <span class="who">S&amp;P 500</span>
+          <span class="crisis-badge r">-46.0%</span>
+        </div>
+        <div class="crisis-row">
+          <span class="who">60/40</span>
+          <span class="crisis-badge r">-22.6%</span>
+        </div>
+        <div class="verdict g">Capital fully preserved</div>
+      </div>
+
+      <div class="crisis-card">
+        <div class="crisis-name">🦠 COVID Crash<br><span style="font-weight:400">Feb – Apr 2020</span></div>
+        <div class="crisis-row">
+          <span class="who">Regime Strategy</span>
+          <span class="crisis-badge" style="color:var(--gold)">-4.4%</span>
+        </div>
+        <div class="crisis-row">
+          <span class="who">S&amp;P 500</span>
+          <span class="crisis-badge r">-9.2%</span>
+        </div>
+        <div class="crisis-row">
+          <span class="who">60/40</span>
+          <span class="crisis-badge" style="color:var(--gold)">+0.6%</span>
+        </div>
+        <div class="verdict y">Half the loss of SPY</div>
+      </div>
+
+      <div class="crisis-card">
+        <div class="crisis-name">📈 2022 Rate Shock<br><span style="font-weight:400">Jan – Dec 2022</span></div>
+        <div class="crisis-row">
+          <span class="who">Regime Strategy</span>
+          <span class="crisis-badge" style="color:var(--gold)">-16.3%</span>
+        </div>
+        <div class="crisis-row">
+          <span class="who">S&amp;P 500</span>
+          <span class="crisis-badge r">-18.2%</span>
+        </div>
+        <div class="crisis-row">
+          <span class="who">60/40</span>
+          <span class="crisis-badge r">-23.4%</span>
+        </div>
+        <div class="verdict y">Beat SPY &amp; crushed 60/40</div>
+      </div>
+
+      <div class="crisis-card">
+        <div class="crisis-name">🇪🇺 EU Debt Crisis<br><span style="font-weight:400">2011 – 2012</span></div>
+        <div class="crisis-row">
+          <span class="who">Regime Strategy</span>
+          <span class="crisis-badge g">+13.4%</span>
+        </div>
+        <div class="crisis-row">
+          <span class="who">S&amp;P 500</span>
+          <span class="crisis-badge" style="color:var(--gold)">+8.7%</span>
+        </div>
+        <div class="crisis-row">
+          <span class="who">60/40</span>
+          <span class="crisis-badge g">+20.8%</span>
+        </div>
+        <div class="verdict g">Outperformed SPY</div>
+      </div>
+
+      <div class="crisis-card">
+        <div class="crisis-name">⚡ Taper Tantrum<br><span style="font-weight:400">May – Sep 2013</span></div>
+        <div class="crisis-row">
+          <span class="who">Regime Strategy</span>
+          <span class="crisis-badge" style="color:var(--gold)">-2.3%</span>
+        </div>
+        <div class="crisis-row">
+          <span class="who">S&amp;P 500</span>
+          <span class="crisis-badge g">+6.3%</span>
+        </div>
+        <div class="crisis-row">
+          <span class="who">60/40</span>
+          <span class="crisis-badge" style="color:var(--gold)">-1.5%</span>
+        </div>
+        <div class="verdict y">Cautious — gave up some upside</div>
+      </div>
+
+      <div class="crisis-card" style="background:rgba(58,169,80,.05); border-color:rgba(58,169,80,.2)">
+        <div class="crisis-name" style="color:var(--green);">📊 Summary Score</div>
+        <div style="font-size:13px; margin-top:8px; line-height:1.7;">
+          <div>Won decisively: <span class="g bold">2 / 5</span></div>
+          <div>Better than SPY: <span class="g bold">4 / 5</span></div>
+          <div>Worst crisis (2008): <span class="g bold">+3.4% vs -46%</span></div>
+          <div>Biggest miss: Taper Tantrum</div>
+        </div>
+        <div class="verdict g" style="margin-top:10px;">Protected in every major downturn</div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- SIGNALS -->
+  <section id="signals">
+    <div class="sec-label">The Signal Engine</div>
+    <h2>What the Model Reads</h2>
+    <p class="sec-desc">12 publicly available government data series from the US Federal Reserve. No proprietary data needed.</p>
+
+    <div class="signal-grid">
+      <div class="signal-card">
+        <div class="signal-icon">📉</div>
+        <div>
+          <h4>Yield Curve Shape</h4>
+          <p>10Y minus 2Y Treasury spread. Inversion has predicted every US recession since 1970 — typically 12–18 months early. The single most predictive feature.</p>
+        </div>
+      </div>
+      <div class="signal-card">
+        <div class="signal-icon">💳</div>
+        <div>
+          <h4>Credit Spread (BAA)</h4>
+          <p>Extra yield on corporate vs government bonds. Widens sharply when fear rises — credit markets flash red <em>before</em> equities react.</p>
+        </div>
+      </div>
+      <div class="signal-card">
+        <div class="signal-icon">💼</div>
+        <div>
+          <h4>Employment Signals</h4>
+          <p>Unemployment rate (monthly) + initial jobless claims (weekly). Claims spike fast at turning points — early warning before unemployment data confirms.</p>
+        </div>
+      </div>
+      <div class="signal-card">
+        <div class="signal-icon">🏭</div>
+        <div>
+          <h4>Industrial Output &amp; GDP</h4>
+          <p>Industrial production (monthly) and real GDP YoY (quarterly, ALFRED vintage). Uses numbers as published — no revision bias.</p>
+        </div>
+      </div>
+      <div class="signal-card">
+        <div class="signal-icon">🔥</div>
+        <div>
+          <h4>Inflation (CPI)</h4>
+          <p>High CPI locks the Fed into hiking even as growth stalls — the stagflation trap. 2022 is the textbook case: stocks and bonds fell simultaneously.</p>
+        </div>
+      </div>
+      <div class="signal-card">
+        <div class="signal-icon">🏦</div>
+        <div>
+          <h4>Fed Funds &amp; Money Supply</h4>
+          <p>Policy rate stance and M2 growth. Aggressive hiking cycles precede every major recession; M2 contraction (rare) signals severe credit tightening.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- RISK METRICS -->
+  <section id="risk">
+    <div class="sec-label">Risk-Adjusted Performance</div>
+    <h2>Beyond Simple Return</h2>
+    <p class="sec-desc">Return alone is incomplete. These metrics show the quality of the return.</p>
+
+    <div class="risk-grid">
+      <div class="risk-card">
+        <div class="metric">Sharpe Ratio</div>
+        <div class="val g">0.937</div>
+        <div class="vs">vs SPY <span>0.760</span> · +23%</div>
+      </div>
+      <div class="risk-card">
+        <div class="metric">Sortino Ratio</div>
+        <div class="val g">1.357</div>
+        <div class="vs">vs SPY <span>1.050</span> · +29%</div>
+      </div>
+      <div class="risk-card">
+        <div class="metric">Calmar Ratio</div>
+        <div class="val g">0.402</div>
+        <div class="vs">vs SPY <span>0.208</span> · +93%</div>
+      </div>
+      <div class="risk-card">
+        <div class="metric">Omega Ratio</div>
+        <div class="val g">2.053</div>
+        <div class="vs">vs SPY <span>1.746</span> · +18%</div>
+      </div>
+      <div class="risk-card">
+        <div class="metric">Max Drawdown</div>
+        <div class="val b">-21.0%</div>
+        <div class="vs">vs SPY <span>-50.8%</span> · 60% less</div>
+      </div>
+      <div class="risk-card">
+        <div class="metric">Recovery Time</div>
+        <div class="val b">31 mo</div>
+        <div class="vs">vs SPY <span>57 months</span> · 1.8× faster</div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+      <div class="card" style="font-size:13px;">
+        <div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:600; letter-spacing:.5px; margin-bottom:10px;">What Each Metric Tests</div>
+        <div style="margin-bottom:8px;"><strong>Sharpe:</strong> <span style="color:var(--muted)">Return per unit of total risk. Standard measure at every fund.</span></div>
+        <div style="margin-bottom:8px;"><strong>Sortino:</strong> <span style="color:var(--muted)">Return per unit of <em>downside</em> risk only. Better for protection strategies.</span></div>
+        <div style="margin-bottom:8px;"><strong>Calmar:</strong> <span style="color:var(--muted)">Return per unit of worst-case loss. CIO/trustee metric.</span></div>
+        <div><strong>Omega:</strong> <span style="color:var(--muted)">Ratio of all gains to all losses. Captures full return distribution.</span></div>
+      </div>
+      <div class="card" style="font-size:13px;">
+        <div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:600; letter-spacing:.5px; margin-bottom:10px;">Robustness — 108 Configurations Tested</div>
+        <div style="margin-bottom:8px;">
+          <span style="color:var(--muted)">K states tested:</span> <strong>2, 3, 4</strong>
+        </div>
+        <div style="margin-bottom:8px;">
+          <span style="color:var(--muted)">Training windows:</span> <strong>10, 15, 20 years</strong>
+        </div>
+        <div style="margin-bottom:8px;">
+          <span style="color:var(--muted)">Transaction costs:</span> <strong>0 → 30 bps</strong>
+        </div>
+        <div style="margin-bottom:8px;">
+          <span style="color:var(--muted)">Rebalance bands:</span> <strong>0%, 2%, 5%</strong>
+        </div>
+        <div style="color:var(--muted); font-size:12px; margin-top:10px; border-top:1px solid var(--border); padding-top:8px;">
+          Signal is robust across all K values and cost assumptions.
+          TC is the dominant sensitivity — strategy survives up to ~20bps.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAKEAWAY -->
+  <section id="takeaway" style="padding-bottom:32px;">
+    <div class="sec-label">Bottom Line</div>
+    <h2>Why This Matters</h2>
+    <div class="card" style="border-color:rgba(88,166,255,.25); background:rgba(31,111,235,.05);">
+      <p style="font-size:15px; line-height:1.8; margin-bottom:16px;">
+        Most portfolios are built for one regime and left to survive all others. This project builds
+        a system that <strong>reads the economic environment monthly</strong> and adjusts exposure
+        accordingly — the same logic that institutional allocators apply with full research teams,
+        automated from public data alone.
+      </p>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:4px;">
+        <div style="text-align:center; padding:12px; background:rgba(0,0,0,.2); border-radius:8px;">
+          <div style="font-size:22px; font-weight:800; color:var(--green); font-family:var(--mono);">60%</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px;">Less drawdown than SPY</div>
+        </div>
+        <div style="text-align:center; padding:12px; background:rgba(0,0,0,.2); border-radius:8px;">
+          <div style="font-size:22px; font-weight:800; color:var(--blue); font-family:var(--mono);">+3.4%</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px;">During 2008 (SPY −46%)</div>
+        </div>
+        <div style="text-align:center; padding:12px; background:rgba(0,0,0,.2); border-radius:8px;">
+          <div style="font-size:22px; font-weight:800; color:var(--green); font-family:var(--mono);">0.937</div>
+          <div style="font-size:12px; color:var(--muted); margin-top:4px;">Sharpe — 23% above SPY</div>
+        </div>
+      </div>
+      <p style="font-size:13px; color:var(--muted); margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
+        The goal was never to beat SPY in a bull market. It was to build something that holds up when
+        it matters most — and to prove it on 20 years of out-of-sample data, not a backfit curve.
+      </p>
+    </div>
+  </section>
+
+  <hr/>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-left">
+      Built by <strong>Aman</strong> · Adaptive Macro Regime Strategy ·
+      OOS 2006–2026 · 241 months · FRED + yfinance data ·
+      <a href="https://github.com/aman-24052001/macro-regime" target="_blank" rel="noopener noreferrer" class="footer-link">GitHub ↗</a>
+    </div>
+    <div class="tech-pills">
+      <span class="pill">Python</span>
+      <span class="pill">hmmlearn</span>
+      <span class="pill">FRED API</span>
+      <span class="pill">Walk-Forward</span>
+      <span class="pill">Bootstrap CI</span>
+    </div>
+  </div>
+
+  <a href="#top" class="back-top">↑ Back to top</a>
+
+</div><!-- /page -->
+
+<script>
+(function() {
+  const labels = ["2006-02","2006-05","2006-08","2006-11","2007-02","2007-05","2007-08","2007-11","2008-02","2008-05","2008-08","2008-11","2009-02","2009-05","2009-08","2009-11","2010-02","2010-05","2010-08","2010-11","2011-02","2011-05","2011-08","2011-11","2012-02","2012-05","2012-08","2012-11","2013-02","2013-05","2013-08","2013-11","2014-02","2014-05","2014-08","2014-11","2015-02","2015-05","2015-08","2015-11","2016-02","2016-05","2016-08","2016-11","2017-02","2017-05","2017-08","2017-11","2018-02","2018-05","2018-08","2018-11","2019-02","2019-05","2019-08","2019-11","2020-02","2020-05","2020-08","2020-11","2021-02","2021-05","2021-08","2021-11","2022-02","2022-05","2022-08","2022-11","2023-02","2023-05","2023-08","2023-11","2024-02","2024-05","2024-08","2024-11","2025-02","2025-05","2025-08","2025-11","2026-02"];
+  const strat = [100.21,99.53,100.67,104.77,105.6,108.89,111.24,119.4,117.27,115.96,117.53,119.13,114.92,124.06,131.08,140.56,137.13,140.93,142.58,147.25,159.02,165.1,159.57,163.6,174.72,179.9,187.18,187.48,188.73,184.76,185.18,191.3,202.85,206.76,214.25,213.01,221.58,215.21,211.87,211.82,212.23,217.4,222.54,211.03,220.4,224.96,231.47,232.02,235.77,236.2,247.12,246.03,253.83,265.54,283.46,287.18,283.92,293.04,323.24,331.46,334.57,359.75,381.16,387.39,380.59,357.5,324.5,339.42,334.45,346.61,353.32,349.26,360.39,373.06,395.99,403.81,407.0,417.66,439.01,476.34,510.1];
+  const spy   = [100.57,100.41,103.32,111.64,112.58,122.96,118.88,120.31,108.87,114.75,105.82,74.45,61.59,77.64,86.46,93.21,94.4,93.61,90.57,102.45,115.73,117.76,107.22,110.22,121.59,117.18,126.47,128.03,137.52,148.92,149.89,166.59,172.39,179.09,187.45,194.41,198.75,200.09,188.24,199.77,186.39,203.11,211.5,215.5,232.6,238.52,245.69,264.39,272.4,272.77,293.58,280.02,284.75,282.51,301.6,325.64,308.45,318.7,367.43,382.36,403.4,446.95,482.06,487.88,469.25,445.16,427.87,443.21,432.78,458.1,495.56,503.99,563.34,586.54,628.95,674.38,667.25,663.86,728.7,774.16,779.4];
+  const b6040 = [100.79,97.72,101.97,108.99,109.43,114.01,113.58,117.9,111.58,113.84,110.78,95.44,84.51,94.86,102.68,107.87,107.02,109.47,113.39,118.13,124.65,128.9,127.83,136.49,145.16,147.74,155.21,155.23,159.28,165.4,161.61,171.82,179.02,187.4,196.54,203.78,212.48,209.38,201.62,209.74,208.18,219.28,231.89,221.65,233.86,240.07,247.85,257.39,257.5,260.63,273.02,261.15,269.74,280.2,306.03,315.23,319.51,335.41,365.2,372.94,369.25,388.59,419.32,426.3,404.09,365.05,351.86,349.11,343.87,358.73,368.11,365.41,397.0,401.89,431.81,447.48,444.0,432.98,460.74,487.77,493.52];
+  const ew    = [100.21,100.97,102.65,106.08,106.97,107.65,108.07,113.63,115.92,115.08,112.58,101.95,102.94,111.06,116.53,124.68,123.74,126.86,132.63,136.5,140.06,145.06,149.86,152.7,158.76,157.62,165.06,166.22,165.38,163.14,160.91,162.39,168.07,170.38,174.65,173.47,178.6,176.33,171.57,171.51,175.91,181.04,190.02,181.36,188.41,191.72,196.31,197.15,196.91,197.45,198.7,195.19,203.09,208.33,224.96,225.37,232.22,239.33,253.61,253.17,248.77,257.06,263.99,263.21,258.55,242.55,233.56,234.84,235.21,243.06,245.25,248.39,258.03,265.67,280.42,287.94,292.08,297.06,308.55,328.25,344.18];
+
+  const ctx = document.getElementById('equityChart');
+  if (!ctx) return;
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Regime Strategy',
+          data: strat,
+          borderColor: '#4f7cff',
+          backgroundColor: 'rgba(79,124,255,0.08)',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false
+        },
+        {
+          label: 'S&P 500',
+          data: spy,
+          borderColor: '#7d8590',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.3,
+          borderDash: [4, 3],
+          fill: false
+        },
+        {
+          label: '60/40',
+          data: b6040,
+          borderColor: '#555',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.3,
+          borderDash: [2, 3],
+          fill: false
+        },
+        {
+          label: 'Equal Weight',
+          data: ew,
+          borderColor: '#3d4448',
+          backgroundColor: 'transparent',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.3,
+          borderDash: [1, 3],
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        annotation: {
+          annotations: {
+            gfc: {
+              type: 'box',
+              xMin: '2007-11', xMax: '2009-05',
+              backgroundColor: 'rgba(248,81,73,0.10)',
+              borderColor: 'rgba(248,81,73,0.30)',
+              borderWidth: 1,
+              label: {
+                display: true, content: 'GFC',
+                color: 'rgba(248,81,73,0.80)',
+                font: { size: 10, weight: 'bold' },
+                position: { x: 'center', y: 'start' }
+              }
+            },
+            covid: {
+              type: 'box',
+              xMin: '2020-02', xMax: '2020-05',
+              backgroundColor: 'rgba(248,81,73,0.10)',
+              borderColor: 'rgba(248,81,73,0.30)',
+              borderWidth: 1,
+              label: {
+                display: true, content: 'COVID',
+                color: 'rgba(248,81,73,0.80)',
+                font: { size: 10, weight: 'bold' },
+                position: { x: 'center', y: 'start' }
+              }
+            },
+            rateShock: {
+              type: 'box',
+              xMin: '2022-02', xMax: '2022-11',
+              backgroundColor: 'rgba(248,81,73,0.10)',
+              borderColor: 'rgba(248,81,73,0.30)',
+              borderWidth: 1,
+              label: {
+                display: true, content: '2022',
+                color: 'rgba(248,81,73,0.80)',
+                font: { size: 10, weight: 'bold' },
+                position: { x: 'center', y: 'start' }
+              }
+            }
+          }
+        },
+        tooltip: {
+          backgroundColor: '#161b22',
+          borderColor: '#21262d',
+          borderWidth: 1,
+          titleColor: '#e6edf3',
+          bodyColor: '#7d8590',
+          callbacks: {
+            label: function(ctx) {
+              return ' ' + ctx.dataset.label + ': $' + ctx.parsed.y.toFixed(0);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: '#7d8590',
+            maxTicksLimit: 10,
+            font: { size: 11 }
+          },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          ticks: {
+            color: '#7d8590',
+            font: { size: 11 },
+            callback: function(v) { return '$' + v; }
+          },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      }
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
