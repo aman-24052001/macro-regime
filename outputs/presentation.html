@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Macro Regime Strategy — Aman</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 <style>
   :root {
     --bg: #0d1117;
@@ -896,6 +897,49 @@
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
+        annotation: {
+          annotations: {
+            gfc: {
+              type: 'box',
+              xMin: '2007-11', xMax: '2009-05',
+              backgroundColor: 'rgba(248,81,73,0.10)',
+              borderColor: 'rgba(248,81,73,0.30)',
+              borderWidth: 1,
+              label: {
+                display: true, content: 'GFC',
+                color: 'rgba(248,81,73,0.80)',
+                font: { size: 10, weight: 'bold' },
+                position: { x: 'center', y: 'start' }
+              }
+            },
+            covid: {
+              type: 'box',
+              xMin: '2020-02', xMax: '2020-05',
+              backgroundColor: 'rgba(248,81,73,0.10)',
+              borderColor: 'rgba(248,81,73,0.30)',
+              borderWidth: 1,
+              label: {
+                display: true, content: 'COVID',
+                color: 'rgba(248,81,73,0.80)',
+                font: { size: 10, weight: 'bold' },
+                position: { x: 'center', y: 'start' }
+              }
+            },
+            rateShock: {
+              type: 'box',
+              xMin: '2022-02', xMax: '2022-11',
+              backgroundColor: 'rgba(248,81,73,0.10)',
+              borderColor: 'rgba(248,81,73,0.30)',
+              borderWidth: 1,
+              label: {
+                display: true, content: '2022',
+                color: 'rgba(248,81,73,0.80)',
+                font: { size: 10, weight: 'bold' },
+                position: { x: 'center', y: 'start' }
+              }
+            }
+          }
+        },
         tooltip: {
           backgroundColor: '#161b22',
           borderColor: '#21262d',
