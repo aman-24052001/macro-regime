@@ -1,0 +1,306 @@
+# ============================================================
+#  Adaptive Macro Regime Detection & Dynamic Factor Rotation
+#  Master Configuration — Template (copy to config.yaml)
+#
+#  Setup:
+#    1. cp config/config.template.yaml config/config.yaml
+#    2. Set your FRED API key below (free at https://fred.stlouisfed.org/docs/api/api_key.html)
+#       OR set env var FRED_API_KEY and leave api_key as ${FRED_API_KEY}
+# ============================================================
+
+project:
+  name: "Adaptive Macro Regime Strategy"
+  version: "1.0.0"
+  random_seed: 42
+  log_level: "INFO"   # DEBUG | INFO | WARNING
+
+# ── DATA ────────────────────────────────────────────────────
+data:
+  fred:
+    api_key: "${FRED_API_KEY}"   # <-- paste your key here, or set env var
+    start_date: "1960-01-01"
+    end_date: null         # null = today
+
+    # Each entry: logical name → FRED series metadata
+    # freq: D=daily, W=weekly, M=monthly, Q=quarterly
+    series:
+      yield_curve_10y2y:
+        id: "T10Y2Y"
+        freq: "D"
+        description: "10Y-2Y Treasury spread — yield curve slope (inversion = recession)"
+
+      yield_curve_10y3m:
+        id: "T10Y3M"
+        freq: "D"
+        description: "10Y-3M Treasury spread — alternative slope signal"
+
+      credit_spread_baa:
+        id: "BAA10Y"
+        freq: "D"
+        description: "BAA corporate bond - 10Y Treasury — credit stress proxy"
+
+      gdp_real:
+        id: "GDPC1"
+        freq: "Q"
+        description: "Real GDP (quarterly, chained 2017 dollars)"
+
+      cpi:
+        id: "CPIAUCSL"
+        freq: "M"
+        description: "CPI all urban consumers — inflation regime driver"
+
+      unemployment:
+        id: "UNRATE"
+        freq: "M"
+        description: "Unemployment rate — labor market slack"
+
+      fed_funds:
+        id: "FEDFUNDS"
+        freq: "M"
+        description: "Effective federal funds rate — monetary policy stance"
+
+      industrial_production:
+        id: "INDPRO"
+        freq: "M"
+        description: "Industrial production index — real activity confirmation"
+
+      m2_money:
+        id: "M2SL"
+        freq: "M"
+        description: "M2 money supply — liquidity conditions"
+
+      jobless_claims:
+        id: "IC4WSA"
+        freq: "W"
+        description: "4-week moving average initial claims — high-freq labor signal"
+
+      # ── Auxiliary series — used ONLY to extend credit_spread_baa pre-1986 ──
+      # BAA10Y (FRED) starts 1986-01-02; DBAA − GS10 reconstructs it from 1953.
+      # These two columns are dropped from the feature matrix after stitching.
+      baa_yield:
+        id: "DBAA"
+        freq: "D"
+        description: "Moody's Baa corporate bond yield — auxiliary for credit spread extension"
+
+      gs10_yield:
+        id: "GS10"
+        freq: "D"
+        description: "10Y Treasury yield — auxiliary for credit spread extension"
+
+  market:
+    source: "yfinance"
+    price_field: "Close"   # field to use from OHLCV
+
+    etfs:
+      SPY:
+        description: "US Large Cap Equity — risk-on / expansion asset"
+        asset_class: "equity"
+      TLT:
+        description: "US Long-Term Treasuries — risk-off / contraction hedge"
+        asset_class: "bonds_long"
+      GLD:
+        description: "Gold — inflation hedge / crisis alpha"
+        asset_class: "commodity"
+      LQD:
+        description: "US IG Corporate Bonds — carry asset / moderate risk"
+        asset_class: "bonds_ig"
+      HYG:
+        description: "US High Yield Bonds — credit risk proxy"
+        asset_class: "bonds_hy"
+      BIL:
+        description: "T-Bills / Cash — safe haven / zero-beta"
+        asset_class: "cash"
+
+    stocks:
+      NVDA:
+        description: "Nvidia — AI/datacenter fundamental transformation case study"
+      WDC:
+        description: "Western Digital — M&A event-driven case study"
+
+  preprocessing:
+    resample_freq: "BME"        # Business Month End — aligns all series
+    zscore_window: 36           # Rolling Z-score lookback in months
+    zscore_min_periods: 12      # Min obs required before emitting a Z-score
+    max_fwd_fill_months: 3      # Max gap forward-fill (quarterly GDP releases)
+    quarterly_interp_method: "linear"  # 'linear' | 'cubic' | 'none'
+    missing_col_threshold: 0.10  # Drop column if >10% missing in training window
+
+# ── FEATURE ENGINEERING ────────────────────────────────────
+feature_engineering:
+  # Rate-of-change windows (months) for momentum features
+  momentum_windows: [1, 3, 6]
+
+  # Derived YoY growth features (applied to level series)
+  yoy_features:
+    - gdp_real
+    - cpi
+    - industrial_production
+    - m2_money
+
+  # Financial Stress Index composite
+  stress_index:
+    components:
+      - credit_spread_baa    # wider = stress
+      - yield_curve_10y2y    # inverted = stress (sign-flipped)
+      - unemployment         # rising = stress
+    weights: [0.40, 0.35, 0.25]
+    name: "financial_stress_index"
+
+# ── EXPLORATION (EDA) ──────────────────────────────────────
+exploration:
+  oos_start: "2006-01-01"          # First OOS prediction date
+  stationarity_alpha: 0.05         # ADF test significance threshold
+  correlation_method: "spearman"   # 'spearman' | 'pearson'
+  high_corr_threshold: 0.85        # Flag feature pairs with |corr| > this
+
+  # Ground truth for regime validation — NBER official recession dates
+  nber_recessions:
+    - name: "Dot-com / 9-11"
+      start: "2001-03-01"
+      end: "2001-11-30"
+    - name: "Global Financial Crisis"
+      start: "2007-12-01"
+      end: "2009-06-30"
+    - name: "COVID-19 Recession"
+      start: "2020-02-01"
+      end: "2020-04-30"
+
+# ── MODEL ───────────────────────────────────────────────────
+model:
+  hmm:
+    n_states_range: [2, 5]          # BIC search range (data-driven selection)
+    force_k: 3                      # Override BIC if set; null = use BIC min
+    covariance_type: "full"         # 'full' | 'diag' | 'spherical' | 'tied'
+    n_iter: 200                     # EM algorithm max iterations
+    n_fits: 50                      # Random restarts for BIC selection phase
+    walk_forward_n_fits: 10         # Restarts during walk-forward (speed vs quality)
+    convergence_tol: 1.0e-4
+    features_for_hmm:
+      - yield_curve_10y2y
+      - credit_spread_baa
+      - unemployment
+      - cpi_yoy
+      - industrial_production_yoy
+      - financial_stress_index
+      - fed_funds
+
+  garch:
+    p: 1
+    q: 1
+    vol_model: "GARCH"    # 'GARCH' | 'EGARCH' | 'GJR-GARCH'
+    dist: "normal"        # 'normal' | 't' | 'skewt'
+    rolling_window: 60    # Months for rolling GARCH estimation
+
+  walk_forward:
+    initial_train_years: 15    # Years before first OOS pred
+    retrain_freq: "M"          # 'M' = monthly expanding window
+
+# ── PORTFOLIO ───────────────────────────────────────────────
+portfolio:
+  regime_portfolios:
+    expansion:
+      SPY: 0.60
+      TLT: 0.10
+      GLD: 0.05
+      LQD: 0.15
+      HYG: 0.10
+      BIL: 0.00
+    stagnation:
+      SPY: 0.30
+      TLT: 0.25
+      GLD: 0.15
+      LQD: 0.15
+      HYG: 0.05
+      BIL: 0.10
+    contraction:
+      SPY: 0.10
+      TLT: 0.40
+      GLD: 0.25
+      LQD: 0.05
+      HYG: 0.00
+      BIL: 0.20
+
+  rebalancing:
+    frequency: "M"
+    threshold_pct: 2.0
+    transaction_cost_bps: 5.0
+    slippage_bps: 2.0
+
+  risk_management:
+    max_single_weight: 0.70
+    max_drawdown_alert: 0.20
+    vol_scale_target: null
+    vol_scale_cap: 1.5
+
+# ── BACKTEST ────────────────────────────────────────────────
+backtest:
+  start_date: "2006-01-01"
+  initial_capital: 1000000
+
+  benchmarks:
+    - name: "Buy & Hold SPY"
+      weights:
+        SPY: 1.0
+    - name: "60/40 SPY/TLT"
+      weights:
+        SPY: 0.60
+        TLT: 0.40
+    - name: "Equal Weight"
+      weights:
+        SPY: 0.1667
+        TLT: 0.1667
+        GLD: 0.1667
+        LQD: 0.1667
+        HYG: 0.1667
+        BIL: 0.1667
+    - name: "Inverse Vol Static"
+      weights: null
+
+  crisis_periods:
+    - name: "Dot-com Bust"
+      start: "2000-03-01"
+      end: "2002-10-31"
+    - name: "Global Financial Crisis"
+      start: "2007-10-01"
+      end: "2009-03-31"
+    - name: "EU Debt Crisis"
+      start: "2011-08-01"
+      end: "2012-07-31"
+    - name: "Taper Tantrum"
+      start: "2013-05-01"
+      end: "2013-09-30"
+    - name: "COVID Crash"
+      start: "2020-02-01"
+      end: "2020-04-30"
+    - name: "2022 Rate Shock"
+      start: "2022-01-01"
+      end: "2022-12-31"
+
+# ── STOCK OVERLAY ───────────────────────────────────────────
+stock_overlay:
+  max_weight: 0.25
+  lambda_risk: 0.30
+  vol_target: 0.30
+  corr_window: 60
+  trend_window: 252
+  signal_weights:
+    momentum:    0.25
+    volatility:  0.20
+    trend:       0.30
+    correlation: 0.15
+    macro:       0.10
+  tickers:
+    - NVDA
+    - WDC
+
+# ── OUTPUTS ─────────────────────────────────────────────────
+outputs:
+  data_cache_dir: "data/raw"
+  processed_dir: "data/processed"
+  figures_dir: "outputs/figures"
+  reports_dir: "outputs/reports"
+  models_dir: "outputs/models"
+  formats:
+    figures: "png"
+    reports: "html"
+  dpi: 150

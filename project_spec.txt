@@ -1,0 +1,425 @@
+================================================================================
+FINAL PROJECT SPEC: MACRO-ECONOMIC REGIME-SWITCHING FACTOR STRATEGY
+================================================================================
+
+PROJECT IDENTITY
+--------------------------------------------------------------------------------
+Title: Adaptive Macro Regime Detection & Dynamic Factor Rotation Strategy
+Domain: Quantitative Asset Management / Global Macro
+Target Roles: Quant Analyst, Trade Analyst, Credit Analyst, Portfolio Strategist
+Tech Stack: Python (hmmlearn, statsmodels, scipy, pandas, numpy, quantstats/pyfolio, yfinance, fredapi, matplotlib/plotly)
+
+
+================================================================================
+1. PROBLEM STATEMENT (Finance Context)
+================================================================================
+
+Static allocation strategies (e.g., 60/40 equity-bond) implicitly assume market 
+regimes are stable. In reality, macroeconomic conditions shift between expansion, 
+stagnation, and contraction — each with fundamentally different risk/return 
+profiles across asset classes.
+
+Key failure modes of static strategies:
+- 2008 GFC: Equities and credit collapsed simultaneously; bonds rallied but 
+  60/40 still drew down ~30%
+- 2020 COVID crash: V-shaped recovery punished those who de-risked too late
+- 2022 rate shock: Bonds and equities fell together, breaking the traditional 
+  diversification assumption
+
+Core question: Can we systematically detect macroeconomic regime shifts in 
+near-real-time and dynamically rotate factor/asset exposure to improve 
+risk-adjusted returns and reduce tail risk?
+
+
+================================================================================
+2. DATA ARCHITECTURE
+================================================================================
+
+2.1 Macro Feature Set (FRED — via fredapi)
+--------------------------------------------------------------------------------
+
+Feature                          | FRED Series ID | Frequency  | Rationale
+---------------------------------|----------------|------------|----------------------------
+Real GDP Growth (QoQ annualized) | GDPC1          | Quarterly  | Core growth signal
+CPI YoY % Change                | CPIAUCSL       | Monthly    | Inflation regime driver
+Unemployment Rate                | UNRATE         | Monthly    | Labor market slack
+10Y-2Y Treasury Spread           | T10Y2Y         | Daily      | Yield curve inversion = recession predictor
+10Y-3M Treasury Spread           | T10Y3M         | Daily      | Alternative yield curve signal
+BAA-AAA Corporate Spread         | BAA10Y/BAA-AAA | Daily      | Credit stress indicator
+Fed Funds Rate                   | FEDFUNDS       | Monthly    | Monetary policy stance
+ISM Manufacturing PMI            | MANEMP (proxy) | Monthly    | Leading economic indicator
+Industrial Production YoY        | INDPRO         | Monthly    | Real activity confirmation
+M2 Money Supply YoY Growth       | M2SL           | Monthly    | Liquidity conditions
+Initial Jobless Claims (4wk MA)  | IC4WSA         | Weekly     | High-frequency labor signal
+Conference Board LEI             | External/proxy | Monthly    | Composite leading indicator
+
+Feature Engineering (derived signals):
+- Rolling Z-scores (3M, 6M, 12M) for each feature to normalize across eras
+- Rate of change (momentum) of each indicator (1M, 3M deltas)
+- Yield curve shape features: level (10Y), slope (10Y-2Y), curvature (2Y+10Y-2x5Y)
+- Credit impulse: change in credit spread x change in spread velocity
+- Composite Financial Stress Index (weighted combination of spread + vol + claims)
+
+
+2.2 Asset Return Data (for portfolio construction & backtest)
+--------------------------------------------------------------------------------
+
+Asset Class                | Ticker/Source          | Role in Portfolio
+---------------------------|-----------------------|----------------------------
+US Large Cap Equity        | SPY (Yahoo Finance)   | Risk-on / expansion asset
+US Long-Term Treasuries    | TLT                   | Risk-off / contraction hedge
+Gold                       | GLD                   | Inflation hedge / crisis alpha
+US Corporate Bonds (IG)    | LQD                   | Carry asset / moderate risk
+US High Yield Bonds        | HYG                   | Credit risk proxy
+Cash / T-Bills             | BIL or French RF      | Safe haven / zero-beta
+International Equity (opt) | EFA                   | Diversification
+Commodities (optional)     | DBC                   | Inflation / late-cycle signal
+
+Source: yfinance for ETF prices (adjusted close), Kenneth French Data Library 
+for historical factor returns (Fama-French 3/5 factor, momentum) pre-ETF era.
+
+
+2.3 Data Alignment & Preprocessing Pipeline
+--------------------------------------------------------------------------------
+
+Problem: Mixed-frequency data — GDP is quarterly, CPI monthly, yield curve daily.
+
+Solution:
+1. Resample all features to monthly frequency (last business day)
+2. Quarterly features (GDP): forward-fill then apply cubic spline interpolation 
+   OR use monthly GDP proxy (e.g., INDPRO as real activity proxy)
+3. Daily features (spreads): take end-of-month or monthly average
+4. Apply vintage-aware alignment — use FRED ALFRED API to pull data as it was 
+   known at time T (eliminates look-ahead bias from GDP revisions)
+5. Handle missing data: forward-fill with max 3-month gap, drop features with 
+   >10% missing in training window
+6. Standardize all features to rolling 36-month Z-scores (prevents distribution 
+   shift across decades)
+
+
+================================================================================
+3. METHODOLOGY (Statistical / Algorithmic Detail)
+================================================================================
+
+3.1 Hidden Markov Model — Theory & Design
+--------------------------------------------------------------------------------
+
+Why HMM over alternatives?
+- HMMs capture latent states that generate observed macro data — directly 
+  analogous to unobservable "economic regimes"
+- Unlike threshold rules (e.g., "recession if yield curve inverts"), HMMs learn 
+  regime boundaries from data
+- Unlike simple clustering (K-means), HMMs model temporal persistence — regimes 
+  are sticky, not random
+
+Model Specification:
+- Type: Gaussian Hidden Markov Model (GaussianHMM from hmmlearn)
+- Number of hidden states: 3 (determined via BIC/AIC comparison across 2-5 states)
+  - State 1 — Expansion: High growth, low spreads, steep yield curve, low unemployment
+  - State 2 — Stagnation/Transition: Mixed signals, flattening curve, rising uncertainty
+  - State 3 — Contraction: Inverted/flat curve, widening spreads, rising unemployment, falling production
+
+Model Parameters (learned via EM algorithm):
+- pi (initial state distribution): Prior probability of starting in each regime
+- A (transition matrix): 3x3 matrix of regime-to-regime transition probabilities 
+  — captures persistence and shift likelihood
+- mu_k, Sigma_k (emission parameters): Mean vector and covariance matrix of 
+  macro features for each regime k
+
+Covariance type: "full" (allows feature correlations within each regime — 
+critical because macro features are correlated)
+
+Training:
+- EM algorithm (Baum-Welch) with multiple random initializations 
+  (n_iter=200, n_fits=50) to avoid local optima
+- Select best fit by log-likelihood
+
+
+3.2 Model Selection & Validation
+--------------------------------------------------------------------------------
+
+Number of states selection:
+- Train HMMs with K = 2, 3, 4, 5 states
+- Compare using BIC (Bayesian Information Criterion) — penalizes complexity
+- Cross-validate against NBER recession dates as ground truth (regime 3 should 
+  align with NBER contractions)
+- 3 states is expected winner — 2 loses transition nuance, 4+ overfits
+
+Walk-Forward Validation Protocol:
+1. Initial training window: 1985-2005 (20 years)
+2. First out-of-sample month: Jan 2006
+3. Expanding window: Each month, re-train HMM on all data up to T-1, predict 
+   regime at T
+4. No future data ever leaks into training — this is critical for credibility
+5. Continue through 2024
+
+Regime Detection Latency Analysis:
+- For each NBER recession start date, measure how many months after the official 
+  start the HMM first assigns P(Contraction) > 0.5
+- Target: detect regime shift within 1-3 months (acceptable), >4 months (model 
+  is too slow)
+- Compare latency against simple heuristic (yield curve inversion signal)
+
+
+3.3 Regime Probability Extraction
+--------------------------------------------------------------------------------
+
+Instead of hard regime assignment (argmax), extract smoothed posterior 
+probabilities for each regime at each time step using the forward-backward 
+algorithm.
+
+Output at each month T:
+- P(Expansion | data up to T)
+- P(Stagnation | data up to T)
+- P(Contraction | data up to T)
+
+These probabilities become the allocation signal.
+
+
+================================================================================
+4. PORTFOLIO CONSTRUCTION & ALLOCATION LOGIC
+================================================================================
+
+4.1 Probability-Weighted Dynamic Allocation
+--------------------------------------------------------------------------------
+
+NOT binary switching. Use regime probabilities to blend across regime-specific 
+portfolios.
+
+Regime-Specific Target Portfolios:
+
+Asset               | Expansion | Stagnation | Contraction
+--------------------|-----------|------------|------------
+Equities (SPY)      | 60%       | 30%        | 10%
+Long Treasuries(TLT)| 10%       | 25%        | 40%
+Gold (GLD)          | 5%        | 15%        | 25%
+Corp Bonds IG (LQD) | 15%       | 15%        | 5%
+High Yield (HYG)    | 10%       | 5%         | 0%
+Cash (BIL)          | 0%        | 10%        | 20%
+
+Final allocation at month T:
+
+  w_T = P(Expansion_T) x w_expansion 
+      + P(Stagnation_T) x w_stagnation 
+      + P(Contraction_T) x w_contraction
+
+This produces smooth, gradual allocation shifts — no violent portfolio turnover.
+
+
+4.2 Rebalancing Rules
+--------------------------------------------------------------------------------
+
+- Frequency: Monthly (end of month, after regime probabilities update)
+- Threshold rebalancing: Only trade if any asset weight deviates >2% from target 
+  (reduces unnecessary turnover)
+- Transaction cost model: 5bps per trade (one-way) — conservative for liquid ETFs
+- Slippage: Additional 2bps assumed
+- No leverage, no shorting (keeps it realistic for institutional long-only mandates)
+
+
+4.3 Position Sizing Refinement — Volatility Scaling (Optional Enhancement)
+--------------------------------------------------------------------------------
+
+Within each asset's weight, apply inverse-volatility scaling using 21-day 
+rolling realized volatility:
+
+  w_i_adjusted = w_i_target x (sigma_target / sigma_i_realized)
+
+Capped at 1.5x target weight to prevent concentration. This ensures each 
+position contributes roughly equal risk.
+
+
+================================================================================
+5. BACKTEST FRAMEWORK
+================================================================================
+
+5.1 Benchmarks (Must Beat At Least on Risk-Adjusted Basis)
+--------------------------------------------------------------------------------
+
+Benchmark                    | Description
+-----------------------------|--------------------------------------------
+Buy-and-Hold S&P 500        | Pure equity exposure
+60/40 Portfolio (SPY/TLT)   | Traditional balanced allocation
+Simple Momentum (12-1 month) | If SPY 12M return > 0, hold SPY, else TLT
+Equal Weight Static          | Equal allocation across all 6 assets
+Inverse Vol Static           | Static inverse-vol weighted portfolio
+
+
+5.2 Performance Metrics (Full Tear Sheet)
+--------------------------------------------------------------------------------
+
+Return Metrics:
+- CAGR (Compound Annual Growth Rate)
+- Total cumulative return
+- Rolling 12M return distribution
+
+Risk Metrics:
+- Annualized Volatility
+- Maximum Drawdown (peak-to-trough)
+- Maximum Drawdown Duration (time to recovery)
+- Value at Risk (5th percentile, 1M horizon)
+- Conditional VaR / Expected Shortfall (mean of worst 5%)
+- Downside Deviation (semi-deviation)
+- Ulcer Index
+
+Risk-Adjusted Metrics:
+- Sharpe Ratio (annualized, rf = T-bill rate)
+- Sortino Ratio
+- Calmar Ratio (CAGR / Max Drawdown)
+- Omega Ratio
+- Information Ratio (vs 60/40 benchmark)
+- Alpha & Beta (CAPM regression vs SPY)
+
+Turnover & Cost Metrics:
+- Monthly turnover (average % of portfolio traded)
+- Annual transaction cost drag
+- Net-of-cost Sharpe vs gross Sharpe
+
+
+5.3 Crisis Period Deep-Dives
+--------------------------------------------------------------------------------
+
+For each event, analyze:
+- Regime probabilities in the 6 months leading up to crisis
+- Exact month model shifted to Contraction
+- Portfolio allocation vs benchmarks during drawdown
+- Recovery speed vs benchmarks
+
+Crisis              | Period      | Key Test
+--------------------|-------------|--------------------------------------------
+Dot-com Bust        | 2000-2002   | Slow recession detection
+Global Financial    | 2007-2009   | Maximum stress, correlation breakdown
+EU Debt Crisis      | 2011-2012   | Non-US shock transmission
+Taper Tantrum       | 2013        | Bond sell-off, no recession
+COVID Crash         | Feb-Mar2020 | Speed of detection, V-recovery
+2022 Rate Shock     | 2022        | Bonds & equities down together
+
+
+================================================================================
+6. CREDIT ANALYST EXTENSION (If Targeting Credit Roles)
+================================================================================
+
+Add a credit risk overlay module:
+- Use regime probabilities to forecast credit spread direction (widening in 
+  contraction, tightening in expansion)
+- Build a simple regression: 
+  Delta_Credit_Spread_t+1 = f(regime_probs_t, Delta_macro_features_t)
+- Show that regime-conditional credit spread forecasts have higher accuracy 
+  than unconditional forecasts
+- Demonstrate portfolio application: underweight HYG / overweight LQD when 
+  P(Contraction) rises above 0.4
+
+
+================================================================================
+7. DELIVERABLES & OUTPUTS
+================================================================================
+
+Deliverable                              | Format              | Purpose
+-----------------------------------------|---------------------|---------------------------
+Full backtest tear sheet                 | PDF/HTML(quantstats)| Visual proof of performance
+Regime timeline chart                    | Matplotlib/Plotly   | Overlay regimes on S&P + NBER
+Transition probability matrix heatmap    | Seaborn             | Regime persistence & shifts
+Detection latency table                 | Markdown/CSV        | Months to detect each recession
+Allocation over time (stacked area)      | Plotly              | Portfolio adaptation visual
+Feature importance per regime            | Table               | Which features define each state
+Benchmark comparison table               | DataFrame           | Side-by-side metrics
+Walk-forward equity curve                | Chart               | OOS cumulative returns vs bench
+GitHub repo with clean README            | Code                | Reproducibility
+
+
+================================================================================
+8. KNOWN LIMITATIONS (Show Self-Awareness)
+================================================================================
+
+State these explicitly in the README and be ready to discuss in interviews:
+
+1. Look-ahead bias risk — even with ALFRED, some indicators are revised months 
+   later. GDP vintage data partially mitigates but doesn't eliminate.
+
+2. Regime count assumption — 3 states is a modeling choice. Real economies have 
+   more nuanced states (stagflation, reflation, goldilocks). BIC selection is 
+   a reasonable but imperfect heuristic.
+
+3. Stationarity assumption — HMM assumes transition probabilities are constant 
+   over time. In reality, structural breaks (e.g., post-2008 QE era) may shift 
+   regime dynamics.
+
+4. Survivorship bias in ETFs — ETF data only starts mid-2000s. Pre-ETF 
+   backtests use index proxies which ignore real trading frictions.
+
+5. No forward-looking alpha claim — this is a risk management / drawdown 
+   reduction tool, not an alpha generator. Frame it as such.
+
+6. US-centric — model trained on US macro data; applying to global portfolios 
+   requires additional validation.
+
+7. Regime labels are post-hoc — HMM states are numbered, not named. Labeling 
+   them "Expansion/Contraction" is interpretive, based on examining emission 
+   parameters.
+
+
+================================================================================
+9. STAR SUMMARY (Resume-Ready)
+================================================================================
+
+SITUATION:
+Static portfolio strategies (e.g., 60/40) suffer severe drawdowns during regime 
+shifts because they assume stable macro conditions — failing in 2008 GFC (-30%), 
+2020 COVID crash, and 2022 bond-equity correlation breakdown.
+
+TASK:
+Build a quantitative system to detect latent macroeconomic regimes in 
+near-real-time and dynamically adjust multi-asset portfolio allocation to reduce 
+tail risk while preserving upside participation.
+
+ACTION:
+- Engineered 15+ macro features from FRED (yield curve shape, credit spreads, 
+  labor, production, monetary aggregates) with rolling Z-score normalization 
+  and vintage-aware data alignment via ALFRED
+- Trained a 3-state Gaussian HMM with walk-forward expanding-window validation 
+  (training from 1985, OOS from 2006)
+- Designed probability-weighted allocation across 6 asset classes — smooth 
+  blending, not binary switching — with monthly threshold rebalancing and 
+  7bps round-trip transaction cost modeling
+- Backtested across 6 major market stress events with full performance tear 
+  sheet and benchmark comparison
+
+RESULT:
+- [X]% reduction in maximum drawdown vs 60/40 benchmark
+- [X] Sharpe ratio vs [Y] for buy-and-hold (net of costs)
+- Average regime detection latency of [N] months versus NBER recession dates
+- Demonstrated consistent downside protection in contraction regimes while 
+  capturing [Z]% of expansion upside
+
+
+================================================================================
+10. INTERVIEW TALKING POINTS
+================================================================================
+
+Be ready for these questions:
+
+Q: "Why HMM over a simpler threshold model?"
+A: Captures multivariate latent structure, models regime persistence via 
+   transition matrix, outputs probabilities not binary signals
+
+Q: "How do you avoid overfitting?"
+A: Walk-forward validation, BIC for state selection, no parameter tuning on 
+   OOS period
+
+Q: "What happens when the model is wrong?"
+A: Probability blending limits damage — even a wrong regime call still holds 
+   diversified assets. Show worst-case misclassification months.
+
+Q: "Would this work in production?"
+A: Discuss monthly FRED data release calendar, automation pipeline, model 
+   retraining frequency, monitoring for distribution drift
+
+Q: "What would you add with more time?"
+A: Bayesian HMM (MCMC for uncertainty), regime-dependent covariance for 
+   portfolio optimization (Black-Litterman overlay), multi-country extension, 
+   alternative data (satellite, NLP on Fed minutes)
+
+
+================================================================================
+END OF SPEC
+================================================================================

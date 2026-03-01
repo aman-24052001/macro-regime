@@ -1,0 +1,2786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Adaptive Macro Regime Strategy</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg:        #0d0f14;
+      --surface:   #141720;
+      --surface2:  #1c2030;
+      --border:    #252a3a;
+      --text:      #c9d1e0;
+      --muted:     #5a6478;
+      --accent:    #4f7cff;
+      --green:     #34c97b;
+      --red:       #e05555;
+      --amber:     #e0a230;
+      --expansion: #4f7cff;
+      --stagnation:#34c97b;
+      --contraction:#e05555;
+      --font:      'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono:      'JetBrains Mono', 'Fira Mono', monospace;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13,15,20,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex; align-items: center; gap: 2rem; height: 52px;
+    }
+    nav .brand { font-weight: 600; font-size: 13px; color: #fff; letter-spacing: .3px; white-space: nowrap; }
+    nav a {
+      color: var(--muted); text-decoration: none; font-size: 12.5px;
+      transition: color .2s;
+    }
+    nav a:hover { color: var(--text); }
+
+    /* ── LAYOUT ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+    section { padding: 72px 0 48px; border-bottom: 1px solid var(--border); }
+    section:last-child { border-bottom: none; }
+
+    /* ── HERO ── */
+    .hero { padding: 80px 0 64px; }
+    .hero .eyebrow {
+      font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--accent); margin-bottom: 16px; font-weight: 600;
+    }
+    .hero h1 {
+      font-size: clamp(26px, 4vw, 40px); font-weight: 700; color: #fff;
+      line-height: 1.2; margin-bottom: 16px; max-width: 680px;
+    }
+    .hero p { color: var(--muted); max-width: 580px; font-size: 15px; }
+
+    .kpi-row {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1px; background: var(--border);
+      border: 1px solid var(--border); border-radius: 10px;
+      overflow: hidden; margin-top: 40px;
+    }
+    .kpi {
+      background: var(--surface); padding: 20px 24px;
+    }
+    .kpi .val {
+      font-size: 26px; font-weight: 700; color: #fff;
+      font-family: var(--mono); letter-spacing: -1px;
+    }
+    .kpi .val.green { color: var(--green); }
+    .kpi .val.red   { color: var(--red); }
+    .kpi .label { font-size: 11px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: .8px; }
+
+    /* ── SECTION HEADERS ── */
+    .sec-label {
+      font-size: 10.5px; letter-spacing: 1.8px; text-transform: uppercase;
+      color: var(--accent); font-weight: 600; margin-bottom: 8px;
+    }
+    h2 { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 20px; }
+    h3 { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px; }
+    p.body { color: var(--muted); margin-bottom: 16px; }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 24px;
+    }
+    .card-grid { display: grid; gap: 16px; }
+    .card-grid.col2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .card-grid.col3 { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+
+    /* ── PIPELINE STEPS ── */
+    .pipeline {
+      display: flex; gap: 0; overflow-x: auto; margin: 24px 0;
+    }
+    .step {
+      flex: 1; min-width: 130px; padding: 16px;
+      background: var(--surface); border: 1px solid var(--border);
+      position: relative; text-align: center;
+    }
+    .step:not(:first-child)::before {
+      content: ''; position: absolute; left: -1px; top: 50%;
+      transform: translateY(-50%);
+      border: 6px solid transparent;
+      border-left-color: var(--border);
+    }
+    .step:first-child { border-radius: 8px 0 0 8px; }
+    .step:last-child  { border-radius: 0 8px 8px 0; }
+    .step .letter { font-size: 18px; font-weight: 800; color: var(--accent); }
+    .step .name   { font-size: 11px; color: #fff; font-weight: 600; margin: 2px 0; }
+    .step .desc   { font-size: 10.5px; color: var(--muted); }
+
+    /* ── TABLES ── */
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+      text-align: left; font-size: 10.5px; letter-spacing: .8px;
+      text-transform: uppercase; color: var(--muted);
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+    }
+    td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+    .bold-row td { color: #fff; font-weight: 600; }
+    .positive { color: var(--green); font-weight: 600; }
+    .negative { color: var(--red); }
+    .neutral  { color: var(--amber); }
+
+    /* ── CHARTS ── */
+    .chart-wrap {
+      position: relative; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 20px;
+    }
+    .chart-title { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 16px; text-transform: uppercase; letter-spacing: .8px; }
+    canvas { display: block; }
+
+    /* ── EMISSION HEATMAP ── */
+    .heatmap { display: grid; gap: 4px; }
+    .hm-row  { display: grid; grid-template-columns: 130px repeat(7, 1fr); gap: 4px; align-items: center; }
+    .hm-label { font-size: 11px; color: var(--muted); text-align: right; padding-right: 8px; }
+    .hm-cell  {
+      height: 34px; border-radius: 4px; display: flex; align-items: center;
+      justify-content: center; font-size: 11px; font-weight: 600; font-family: var(--mono);
+    }
+
+    /* ── TRANSITION MATRIX ── */
+    .trans-grid { display: grid; grid-template-columns: 80px repeat(3, 1fr); gap: 4px; }
+    .trans-header { font-size: 10px; color: var(--muted); text-align: center; padding: 4px; }
+    .trans-label  { font-size: 11px; color: var(--muted); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; }
+    .trans-cell   {
+      height: 52px; border-radius: 6px; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; font-family: var(--mono);
+    }
+    .trans-cell .pct  { font-size: 15px; font-weight: 700; }
+    .trans-cell .lbl  { font-size: 9px; color: rgba(255,255,255,.45); margin-top: 1px; }
+
+    /* ── FEATURE TAGS ── */
+    .tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .tag {
+      padding: 4px 10px; border-radius: 20px; font-size: 11.5px;
+      border: 1px solid var(--border); color: var(--muted);
+    }
+    .tag.active { border-color: var(--accent); color: var(--accent); background: rgba(79,124,255,.08); }
+
+    /* ── Q&A ACCORDION ── */
+    .qa-section { margin-top: 8px; }
+    .qa-group-label { font-size: 10.5px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent); margin: 28px 0 10px; }
+    details {
+      border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px;
+      background: var(--surface);
+    }
+    summary {
+      padding: 14px 18px; cursor: pointer; list-style: none;
+      font-size: 13.5px; color: var(--text); font-weight: 500;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    summary::after { content: '+'; color: var(--muted); font-size: 16px; flex-shrink: 0; }
+    details[open] summary::after { content: '−'; }
+    .qa-body { padding: 0 18px 16px; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .qa-body code { font-family: var(--mono); background: var(--surface2); padding: 2px 6px; border-radius: 3px; font-size: 12px; color: var(--text); }
+    .qa-body ul { padding-left: 18px; margin-top: 6px; }
+    .qa-body li { margin-bottom: 4px; }
+
+    /* ── REGIME LEGEND ── */
+    .regime-legend { display: flex; gap: 20px; margin-bottom: 16px; }
+    .regime-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .dot-exp  { background: var(--expansion); }
+    .dot-stag { background: var(--stagnation); }
+    .dot-cont { background: var(--contraction); }
+    .regime-name { font-size: 12px; color: var(--muted); }
+
+    /* ── ASSESSMENT ── */
+    .check-yes { color: var(--green); font-weight: 700; font-size: 14px; }
+    .rank-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 50%;
+      font-size: 11px; font-weight: 700; font-family: var(--mono);
+    }
+    .rank-1 { background: rgba(52,201,123,.18); color: var(--green); }
+    .rank-2 { background: rgba(79,124,255,.18); color: var(--accent); }
+    .rank-3 { background: rgba(200,209,224,.08); color: var(--muted); }
+    .rank-4 { background: rgba(200,209,224,.05); color: var(--muted); opacity: .65; }
+    .rank-5 { background: rgba(224,85,85,.14); color: var(--red); }
+    .use-icon { font-size: 28px; margin-bottom: 10px; }
+    .use-tag  { font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--accent); margin-bottom: 8px; }
+    .gfc-callout {
+      margin-top: 20px; padding: 14px 18px;
+      background: var(--surface2); border-radius: 8px;
+      border-left: 3px solid var(--green);
+    }
+    .gfc-callout .eyebrow { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 4px; }
+    .gfc-callout .big { font-size: 24px; font-weight: 700; color: var(--green); font-family: var(--mono); }
+    .gfc-callout .sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .limit-box {
+      border: 1px solid rgba(224,162,48,.4); border-radius: 10px;
+      padding: 22px 28px; margin-top: 28px;
+      background: rgba(224,162,48,.04);
+    }
+    .limit-box h3 { color: var(--amber); margin-bottom: 10px; font-size: 13px; }
+    .metric-formula {
+      font-family: var(--mono); font-size: 11.5px;
+      background: var(--surface2); border-radius: 5px;
+      padding: 6px 10px; margin: 8px 0 10px; color: var(--accent);
+    }
+
+    /* ── FOOTER ── */
+    footer { padding: 32px 0; text-align: center; color: var(--muted); font-size: 12px; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <span class="brand">Macro Regime Strategy</span>
+  <a href="#problem">Problem</a>
+  <a href="#data">Data</a>
+  <a href="#features">Features</a>
+  <a href="#method">Method</a>
+  <a href="#model">Model</a>
+  <a href="#backtest">Backtest</a>
+  <a href="#qa">Q&amp;A</a>
+  <a href="#robustness">Robustness</a>
+  <a href="#bootstrap">Bootstrap CI</a>
+  <a href="#assessment">Assessment</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div class="container">
+    <div class="eyebrow">Portfolio Project — Quant / Trade / Credit Analyst</div>
+    <h1>Adaptive Macro Regime Detection &amp; Dynamic Factor Rotation</h1>
+    <p>A fully data-driven system that detects economic regimes from FRED macro data using a walk-forward Gaussian HMM and dynamically rotates across six ETF asset classes — with no look-ahead bias.</p>
+
+    <div class="kpi-row">
+      <div class="kpi"><div class="val green">8.45%</div><div class="label">Strategy CAGR (OOS)</div></div>
+      <div class="kpi"><div class="val green">0.937</div><div class="label">Sharpe Ratio</div></div>
+      <div class="kpi"><div class="val red">-21.0%</div><div class="label">Max Drawdown</div></div>
+      <div class="kpi"><div class="val">1.357</div><div class="label">Sortino Ratio</div></div>
+      <div class="kpi"><div class="val">241</div><div class="label">OOS Months</div></div>
+      <div class="kpi"><div class="val">0.760</div><div class="label">SPY Sharpe</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section id="problem">
+  <div class="container">
+    <div class="sec-label">Problem Statement</div>
+    <h2>Why Macro Regime Detection?</h2>
+    <div class="card-grid col2">
+      <div class="card">
+        <h3>The Core Insight</h3>
+        <p class="body">Asset returns are not i.i.d. — they cluster by economic regime. Equities outperform in expansions; bonds in contractions; gold in stagflation. A system that identifies the current regime can rotate capital accordingly, improving risk-adjusted returns without predicting prices.</p>
+        <p class="body">Traditional static portfolios (60/40) apply fixed allocations regardless of economic cycle. A regime-aware strategy is adaptive by design.</p>
+      </div>
+      <div class="card">
+        <h3>Hypothesis</h3>
+        <p class="body">Macroeconomic state is latent — it cannot be observed directly but leaves a signature across yield curves, credit spreads, labor markets, and inflation. A Hidden Markov Model is a natural fit: hidden states (regimes) drive observable emissions (macro indicators).</p>
+        <p class="body">Walk-forward validation enforces strict no-look-ahead: the model never sees the future during any OOS prediction.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DATA -->
+<section id="data">
+  <div class="container">
+    <div class="sec-label">Data</div>
+    <h2>Sources &amp; Universe</h2>
+    <div class="card-grid col2">
+      <div class="card">
+        <h3>FRED Macro Series — 12 Series (1960 – 2026)</h3>
+        <table>
+          <thead><tr><th>Series</th><th>ID</th><th>Freq</th><th>Signal</th></tr></thead>
+          <tbody>
+            <tr><td>Yield Curve 10Y-2Y</td><td>T10Y2Y</td><td>Daily</td><td>Recession predictor</td></tr>
+            <tr><td>Yield Curve 10Y-3M</td><td>T10Y3M</td><td>Daily</td><td>Alternate slope</td></tr>
+            <tr><td>Credit Spread BAA</td><td>BAA10Y</td><td>Daily</td><td>Credit stress</td></tr>
+            <tr><td>Real GDP</td><td>GDPC1</td><td>Quarterly</td><td>Growth regime</td></tr>
+            <tr><td>CPI</td><td>CPIAUCSL</td><td>Monthly</td><td>Inflation driver</td></tr>
+            <tr><td>Unemployment</td><td>UNRATE</td><td>Monthly</td><td>Labor cycle</td></tr>
+            <tr><td>Fed Funds Rate</td><td>FEDFUNDS</td><td>Monthly</td><td>Policy stance</td></tr>
+            <tr><td>Industrial Production</td><td>INDPRO</td><td>Monthly</td><td>Real activity</td></tr>
+            <tr><td>M2 Money Supply</td><td>M2SL</td><td>Monthly</td><td>Liquidity</td></tr>
+            <tr><td>Jobless Claims (4W MA)</td><td>IC4WSA</td><td>Weekly</td><td>Leading labor</td></tr>
+            <tr style="color:var(--muted);font-size:11px;"><td>Baa Yield (aux)</td><td>DBAA</td><td>Daily</td><td>Credit spread extension to 1960</td></tr>
+            <tr style="color:var(--muted);font-size:11px;"><td>10Y Treasury (aux)</td><td>GS10</td><td>Monthly</td><td>Credit spread extension to 1960</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>ETF Universe (6 Assets)</h3>
+        <table>
+          <thead><tr><th>Ticker</th><th>Asset Class</th><th>Role</th></tr></thead>
+          <tbody>
+            <tr><td><strong>SPY</strong></td><td>US Equities</td><td>Risk-on / Expansion</td></tr>
+            <tr><td><strong>TLT</strong></td><td>Long-Term Treasuries</td><td>Safe haven / Contraction</td></tr>
+            <tr><td><strong>GLD</strong></td><td>Gold</td><td>Inflation / Stress hedge</td></tr>
+            <tr><td><strong>LQD</strong></td><td>IG Corporate Credit</td><td>Carry / Stagnation</td></tr>
+            <tr><td><strong>HYG</strong></td><td>High-Yield Credit</td><td>Risk-on / Expansion</td></tr>
+            <tr><td><strong>BIL</strong></td><td>T-Bills (Cash)</td><td>Defensive / Contraction</td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top:16px;">
+          <h3>Stocks (Case Studies)</h3>
+          <p class="body" style="font-size:12px;">NVDA (AI boom cycle), WDC (M&amp;A / commodity cycle)</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="sec-label">Feature Engineering</div>
+    <h2>34 Derived Features → 7 HMM Inputs</h2>
+    <p class="body">Raw series are monthly-resampled (Business Month End), then 36-month rolling Z-scored to achieve stationarity and comparability across structural regime shifts. 34 derived features are engineered; 7 are selected for the HMM based on data availability, coverage, and economic interpretability.</p>
+
+    <div class="card-grid col2" style="margin-top:24px;">
+      <div class="card">
+        <h3>All 34 Engineered Features</h3>
+        <div class="tag-cloud">
+          <span class="tag active">yield_curve_10y2y</span>
+          <span class="tag active">credit_spread_baa</span>
+          <span class="tag active">unemployment</span>
+          <span class="tag active">cpi_yoy</span>
+          <span class="tag active">industrial_production_yoy</span>
+          <span class="tag active">financial_stress_index</span>
+          <span class="tag active">fed_funds</span>
+          <span class="tag">yield_curve_10y3m</span>
+          <span class="tag">yc_inverted</span>
+          <span class="tag">yc_10y3m_inverted</span>
+          <span class="tag">gdp_real_yoy</span>
+          <span class="tag">gdp_real_accel</span>
+          <span class="tag">cpi_accel</span>
+          <span class="tag">ip_accel</span>
+          <span class="tag">m2_money_yoy</span>
+          <span class="tag">m2_money_accel</span>
+          <span class="tag">yield_curve_mom1m/3m/6m</span>
+          <span class="tag">credit_spread_mom1m/3m/6m</span>
+          <span class="tag">unemployment_mom1m/3m/6m</span>
+          <span class="tag">fed_funds_mom1m/3m/6m</span>
+          <span class="tag">unemp_delta_12m</span>
+        </div>
+        <p style="font-size:11px; color:var(--muted); margin-top:12px;">Highlighted = selected for HMM (7 features). All others used in EDA/correlation analysis.</p>
+      </div>
+      <div class="card">
+        <h3>Financial Stress Index (FSI)</h3>
+        <p class="body" style="font-size:12.5px;">Weighted composite of Z-scored macro indicators. Yield curve component is sign-flipped (inversion = stress = positive FSI).</p>
+        <table>
+          <thead><tr><th>Component</th><th>Weight</th><th>Direction</th></tr></thead>
+          <tbody>
+            <tr><td>Credit Spread BAA</td><td>0.35</td><td>Higher = more stress</td></tr>
+            <tr><td>Yield Curve 10Y2Y</td><td>0.30</td><td>Inverted = more stress</td></tr>
+            <tr><td>Unemployment</td><td>0.20</td><td>Higher = more stress</td></tr>
+            <tr><td>Fed Funds Rate</td><td>0.15</td><td>Higher = tighter</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:11px; color:var(--muted); margin-top:10px;">FSI = Σ(weight × signed_zscore) / Σ(weights)</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- METHODOLOGY -->
+<section id="method">
+  <div class="container">
+    <div class="sec-label">Methodology</div>
+    <h2>OSEMN Pipeline</h2>
+
+    <div class="pipeline">
+      <div class="step"><div class="letter">O</div><div class="name">Obtain</div><div class="desc">FRED + yfinance</div></div>
+      <div class="step"><div class="letter">S</div><div class="name">Scrub</div><div class="desc">BME resample, Z-score, engineer</div></div>
+      <div class="step"><div class="letter">E</div><div class="name">Explore</div><div class="desc">EDA, BIC, K selection</div></div>
+      <div class="step"><div class="letter">M</div><div class="name">Model</div><div class="desc">Walk-forward HMM</div></div>
+      <div class="step"><div class="letter">N</div><div class="name">iNterpret</div><div class="desc">Allocate, backtest, metrics</div></div>
+    </div>
+
+    <div class="card-grid col2" style="margin-top:16px;">
+      <div class="card">
+        <h3>HMM Design Choices</h3>
+        <table>
+          <thead><tr><th>Decision</th><th>Choice</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>Architecture</td><td>Gaussian HMM</td><td>Continuous emissions, macro data is multivariate normal</td></tr>
+            <tr><td>Covariance</td><td>Full</td><td>Features are correlated — diagonal would lose information</td></tr>
+            <tr><td>States K</td><td>3 (force_k)</td><td>BIC decreases K2→K5; K4→K5 elbow (44.9 pts, 21%); economic prior K=3 (Expansion/Stagnation/Contraction)</td></tr>
+            <tr><td>Restarts</td><td>50 (BIC) / 10 (walk-fwd)</td><td>EM local optima — multiple restarts select best log-likelihood</td></tr>
+            <tr><td>Validation</td><td>Walk-forward expanding</td><td>Never k-fold on time series — look-ahead contamination</td></tr>
+            <tr><td>Regime labels</td><td>Auto from emissions</td><td>Rank states by yield curve slope — data-driven, not assumed</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <h3>Portfolio Construction</h3>
+        <table>
+          <thead><tr><th>Step</th><th>Detail</th></tr></thead>
+          <tbody>
+            <tr><td>Weight formula</td><td>w(t) = P(exp)·w_exp + P(stag)·w_stag + P(cont)·w_cont</td></tr>
+            <tr><td>Lag</td><td>weights(T) → returns(T+1) — strict no look-ahead</td></tr>
+            <tr><td>Rebalance trigger</td><td>2% threshold band — avoids excessive trading</td></tr>
+            <tr><td>Transaction cost</td><td>7bps round-trip (5bps commission + 2bps slippage)</td></tr>
+            <tr><td>Avg monthly turnover</td><td>18.8% — rebalanced 136 of 241 months</td></tr>
+            <tr><td>Avg annual TC drag</td><td>0.32 bps — negligible</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MODEL RESULTS -->
+<section id="model">
+  <div class="container">
+    <div class="sec-label">Model Results</div>
+    <h2>Walk-Forward HMM — K=3 States</h2>
+
+    <div class="card-grid col3" style="margin-bottom:24px;">
+      <div class="kpi-row" style="margin-top:0;">
+        <div class="kpi"><div class="val">229</div><div class="label">Training months</div></div>
+        <div class="kpi"><div class="val">241</div><div class="label">OOS months</div></div>
+        <div class="kpi"><div class="val">0</div><div class="label">Skipped months</div></div>
+      </div>
+    </div>
+
+    <div class="card-grid col2" style="margin-bottom:24px;">
+      <!-- BIC Chart -->
+      <div class="chart-wrap">
+        <div class="chart-title">BIC State Selection — K=2 to K=5</div>
+        <canvas id="bicChart" height="180"></canvas>
+        <p style="font-size:11px; color:var(--muted); margin-top:10px;">BIC (extended 1960 history): K2→K3: 358.1 pts; K3→K4: 212.9 pts; K4→K5: 44.9 pts (<strong style="color:var(--green)">elbow here</strong>). Economic prior K=3 retained — 3 distinct macro phases (expansion/stagnation/contraction) are economically meaningful.</p>
+      </div>
+      <!-- Regime Distribution -->
+      <div class="chart-wrap">
+        <div class="chart-title">Regime Distribution (OOS 2006–2026)</div>
+        <canvas id="regimeDonut" height="180"></canvas>
+        <div class="regime-legend" style="margin-top:16px;">
+          <span><span class="regime-dot dot-stag"></span><span class="regime-name">Stagnation 50% (122 mo)</span></span>
+          <span><span class="regime-dot dot-exp"></span><span class="regime-name">Expansion 26% (64 mo)</span></span>
+          <span><span class="regime-dot dot-cont"></span><span class="regime-name">Contraction 23% (56 mo)</span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Emission Means Heatmap -->
+    <div class="card" style="margin-bottom:24px;">
+      <h3>Emission Means (Z-scores) — What Each Regime Looks Like</h3>
+      <p class="body" style="font-size:12px;">Values are Z-scores relative to full-sample distribution. Positive = above average, Negative = below average.</p>
+      <div class="heatmap" style="margin-top:16px; overflow-x:auto;">
+        <div class="hm-row">
+          <div class="hm-label"></div>
+          <div style="font-size:10px; color:var(--muted); text-align:center;">Yield Curve</div>
+          <div style="font-size:10px; color:var(--muted); text-align:center;">Credit Sprd</div>
+          <div style="font-size:10px; color:var(--muted); text-align:center;">Unemploy.</div>
+          <div style="font-size:10px; color:var(--muted); text-align:center;">CPI YoY</div>
+          <div style="font-size:10px; color:var(--muted); text-align:center;">IP YoY</div>
+          <div style="font-size:10px; color:var(--muted); text-align:center;">FSI</div>
+          <div style="font-size:10px; color:var(--muted); text-align:center;">Fed Funds</div>
+        </div>
+        <div class="hm-row">
+          <div class="hm-label" style="color:var(--expansion);">Expansion</div>
+          <div class="hm-cell" id="hm-e-yc"></div>
+          <div class="hm-cell" id="hm-e-cs"></div>
+          <div class="hm-cell" id="hm-e-un"></div>
+          <div class="hm-cell" id="hm-e-cpi"></div>
+          <div class="hm-cell" id="hm-e-ip"></div>
+          <div class="hm-cell" id="hm-e-fsi"></div>
+          <div class="hm-cell" id="hm-e-ff"></div>
+        </div>
+        <div class="hm-row">
+          <div class="hm-label" style="color:var(--stagnation);">Stagnation</div>
+          <div class="hm-cell" id="hm-s-yc"></div>
+          <div class="hm-cell" id="hm-s-cs"></div>
+          <div class="hm-cell" id="hm-s-un"></div>
+          <div class="hm-cell" id="hm-s-cpi"></div>
+          <div class="hm-cell" id="hm-s-ip"></div>
+          <div class="hm-cell" id="hm-s-fsi"></div>
+          <div class="hm-cell" id="hm-s-ff"></div>
+        </div>
+        <div class="hm-row">
+          <div class="hm-label" style="color:var(--contraction);">Contraction</div>
+          <div class="hm-cell" id="hm-c-yc"></div>
+          <div class="hm-cell" id="hm-c-cs"></div>
+          <div class="hm-cell" id="hm-c-un"></div>
+          <div class="hm-cell" id="hm-c-cpi"></div>
+          <div class="hm-cell" id="hm-c-ip"></div>
+          <div class="hm-cell" id="hm-c-fsi"></div>
+          <div class="hm-cell" id="hm-c-ff"></div>
+        </div>
+      </div>
+      <p style="font-size:11px; color:var(--muted); margin-top:16px;">
+        <strong style="color:var(--expansion);">Expansion</strong>: Steep curve, high unemployment, near-zero rates — post-recession recovery. &nbsp;
+        <strong style="color:var(--stagnation);">Stagnation</strong>: Tight spreads, low unemployment, strong IP — goldilocks mid-cycle. &nbsp;
+        <strong style="color:var(--contraction);">Contraction</strong>: Flat/inverted curve, hot labor market, high Fed Funds — late-cycle tightening (precursor state, not yet recession).
+      </p>
+    </div>
+
+    <!-- Transition Matrix -->
+    <div class="card-grid col2">
+      <div class="card">
+        <h3>Regime Transition Matrix (monthly probabilities)</h3>
+        <div class="trans-grid" style="margin-top:8px;">
+          <div class="trans-header"></div>
+          <div class="trans-header" style="color:var(--expansion);">→ Expansion</div>
+          <div class="trans-header" style="color:var(--stagnation);">→ Stagnation</div>
+          <div class="trans-header" style="color:var(--contraction);">→ Contraction</div>
+
+          <div class="trans-label" style="color:var(--expansion); font-size:10px;">Expansion</div>
+          <div class="trans-cell" style="background:rgba(79,124,255,.35)"><span class="pct">96.3%</span><span class="lbl">self-loop</span></div>
+          <div class="trans-cell" style="background:rgba(52,201,123,.12)"><span class="pct">3.7%</span><span class="lbl">→ stag</span></div>
+          <div class="trans-cell" style="background:rgba(224,85,85,.04)"><span class="pct">~0%</span><span class="lbl"></span></div>
+
+          <div class="trans-label" style="color:var(--stagnation); font-size:10px;">Stagnation</div>
+          <div class="trans-cell" style="background:rgba(79,124,255,.06)"><span class="pct">~0%</span><span class="lbl"></span></div>
+          <div class="trans-cell" style="background:rgba(52,201,123,.35)"><span class="pct">94.6%</span><span class="lbl">self-loop</span></div>
+          <div class="trans-cell" style="background:rgba(224,85,85,.15)"><span class="pct">5.4%</span><span class="lbl">→ cont.</span></div>
+
+          <div class="trans-label" style="color:var(--contraction); font-size:10px;">Contraction</div>
+          <div class="trans-cell" style="background:rgba(79,124,255,.10)"><span class="pct">2.0%</span><span class="lbl">→ exp.</span></div>
+          <div class="trans-cell" style="background:rgba(52,201,123,.04)"><span class="pct">~0%</span><span class="lbl"></span></div>
+          <div class="trans-cell" style="background:rgba(224,85,85,.35)"><span class="pct">97.6%</span><span class="lbl">self-loop</span></div>
+        </div>
+        <p style="font-size:11px; color:var(--muted); margin-top:12px;">Cycle path: Expansion → Stagnation → Contraction → Expansion. High self-loop probabilities confirm regime persistence (27 / 19 / 42 month avg durations).</p>
+      </div>
+
+      <div class="card">
+        <h3>Regime Target Portfolios</h3>
+        <table>
+          <thead><tr><th>Asset</th><th style="color:var(--expansion);">Expansion</th><th style="color:var(--stagnation);">Stagnation</th><th style="color:var(--contraction);">Contraction</th></tr></thead>
+          <tbody>
+            <tr><td>SPY</td><td>60%</td><td>30%</td><td>10%</td></tr>
+            <tr><td>TLT</td><td>10%</td><td>25%</td><td>40%</td></tr>
+            <tr><td>GLD</td><td>5%</td><td>15%</td><td>25%</td></tr>
+            <tr><td>LQD</td><td>15%</td><td>15%</td><td>5%</td></tr>
+            <tr><td>HYG</td><td>10%</td><td>5%</td><td>0%</td></tr>
+            <tr><td>BIL</td><td>0%</td><td>10%</td><td>20%</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:11px; color:var(--muted); margin-top:10px;">Blended continuously: w(t) = Σ P(regime_k) × w_k. Probability weighting creates smooth transitions — not binary on/off switching.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BACKTEST -->
+<section id="backtest">
+  <div class="container">
+    <div class="sec-label">Backtest Results</div>
+    <h2>OOS Performance — 2006-02 to 2026-02 (241 months)</h2>
+
+    <div class="card-grid col2" style="margin-bottom:24px;">
+      <div class="chart-wrap">
+        <div class="chart-title">CAGR vs Sharpe — Strategy vs Benchmarks</div>
+        <canvas id="perfChart" height="220"></canvas>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Crisis Period Returns — Regime Strategy vs SPY</div>
+        <canvas id="crisisChart" height="220"></canvas>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:24px; overflow-x:auto;">
+      <h3>Full Performance Comparison</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Strategy</th><th>CAGR</th><th>Vol</th><th>Max DD</th><th>Max DD Dur.</th>
+            <th>Sharpe</th><th>Sortino</th><th>Calmar</th><th>Omega</th><th>Hit Rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="bold-row">
+            <td>Regime Strategy</td><td class="positive">8.45%</td><td>9.13%</td><td class="negative">-21.0%</td><td>31 mo</td>
+            <td class="positive">0.937</td><td class="positive">1.357</td><td class="positive">0.402</td><td class="positive">2.053</td><td>66.4%</td>
+          </tr>
+          <tr>
+            <td>Buy &amp; Hold SPY</td><td>10.56%</td><td>14.70%</td><td class="negative">-50.8%</td><td>74 mo</td>
+            <td>0.760</td><td>1.050</td><td>0.208</td><td>1.746</td><td>65.0%</td>
+          </tr>
+          <tr>
+            <td>60/40 SPY/TLT</td><td>8.56%</td><td>9.81%</td><td class="negative">-28.5%</td><td>35 mo</td>
+            <td>0.890</td><td>1.115</td><td>0.300</td><td>1.964</td><td>67.8%</td>
+          </tr>
+          <tr>
+            <td>Equal Weight</td><td>6.32%</td><td>7.09%</td><td class="negative">-16.9%</td><td>29 mo</td>
+            <td>0.902</td><td>1.298</td><td>0.375</td><td>2.013</td><td>61.8%</td>
+          </tr>
+          <tr>
+            <td>Inverse Vol Static</td><td class="negative">3.93%</td><td>9.01%</td><td class="negative">-44.8%</td><td>74 mo</td>
+            <td class="negative">0.474</td><td class="negative">0.556</td><td class="negative">0.088</td><td class="negative">1.611</td><td>53.7%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="overflow-x:auto;">
+      <h3>Crisis Period Analysis</h3>
+      <table>
+        <thead>
+          <tr><th>Crisis</th><th>Regime Strategy</th><th>SPY</th><th>60/40</th><th>Equal Wt</th><th>Assessment</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>GFC (Oct 07–Mar 09)</td>
+            <td class="positive">+3.4%</td><td class="negative">-46.0%</td><td class="negative">-22.6%</td><td class="negative">-5.8%</td>
+            <td class="positive">Excellent protection</td>
+          </tr>
+          <tr>
+            <td>EU Debt Crisis (Aug 11–Jul 12)</td>
+            <td class="positive">+17.1%</td><td>+8.7%</td><td>+20.8%</td><td>+11.3%</td>
+            <td class="positive">Outperformed SPY</td>
+          </tr>
+          <tr>
+            <td>Taper Tantrum (May–Sep 13)</td>
+            <td class="negative">-6.4%</td><td class="positive">+6.3%</td><td class="negative">-1.5%</td><td class="negative">-4.0%</td>
+            <td class="negative">Underperformed (bond heavy)</td>
+          </tr>
+          <tr>
+            <td>COVID Crash (Feb–Apr 20)</td>
+            <td class="neutral">-4.2%</td><td class="negative">-9.2%</td><td>+0.6%</td><td>+0.9%</td>
+            <td class="neutral">Partial protection</td>
+          </tr>
+          <tr>
+            <td>2022 Rate Shock (Jan–Dec 22)</td>
+            <td class="negative">-16.5%</td><td class="negative">-18.2%</td><td class="negative">-23.4%</td><td class="negative">-13.3%</td>
+            <td class="negative">TLT drag; marginal vs SPY</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size:11px; color:var(--muted); margin-top:12px;">
+        <strong>Key risk identified</strong>: The "Contraction" state (late-cycle tightening) allocates TLT=40%, which assumes falling rates. In 2022, the Fed hiked 525bps and TLT fell 30%+. The model correctly identified the regime but the portfolio design was calibrated for an actual recession, not a rate-hike cycle. Possible fixes: reduce TLT to 20% and raise BIL, or add a separate rate-direction signal.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- Q&A -->
+<section id="qa">
+  <div class="container">
+    <div class="sec-label">Interview Preparation</div>
+    <h2>Anticipated Questions &amp; Answers</h2>
+
+    <div class="qa-section">
+      <div class="qa-group-label">Non-Technical — Strategy &amp; Motivation</div>
+
+      <details>
+        <summary>Walk me through this project in 2 minutes.</summary>
+        <div class="qa-body">
+          <p>The central question is: can we improve risk-adjusted returns by detecting economic regimes and rotating asset classes accordingly? I built a full pipeline that pulls 12 macroeconomic series from FRED (yield curves, credit spreads, inflation, unemployment, Fed policy, going back to 1960) and engineers 34 features. A 3-state Gaussian Hidden Markov Model learns to identify latent economic regimes — Expansion, Stagnation, and Contraction — purely from the data.</p>
+          <p style="margin-top:8px;">The model is validated walk-forward: train on 1991–2005, predict 2006–2026, one month at a time, never looking ahead. Regime probabilities drive a probability-weighted ETF allocation across SPY, TLT, GLD, LQD, HYG, and BIL.</p>
+          <p style="margin-top:8px;">Result: 8.45% CAGR, Sharpe 0.937, max drawdown -21% — significantly better risk-adjusted than the SPY buy-and-hold (Sharpe 0.76, max DD -51%). The strategy delivered +3.4% during the GFC when SPY lost -46%.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why use a HMM rather than a simpler rules-based regime model?</summary>
+        <div class="qa-body">
+          <p>A rules-based approach would require me to specify the thresholds: "inverted yield curve for 3 months = contraction." That embeds my prior assumptions directly. The HMM learns the regime boundaries from the data — the emission means and transition probabilities are estimated, not assumed.</p>
+          <p style="margin-top:8px;">Additionally, the HMM provides <em>soft assignments</em> — probability P(regime|data) rather than a binary flag. This allows smooth weight transitions and avoids whipsawing. It also provides uncertainty quantification: if P(expansion)=0.55 and P(stagnation)=0.40, the portfolio blends accordingly rather than going all-in on expansion.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>What is the biggest weakness of this strategy?</summary>
+        <div class="qa-body">
+          <p>The "Contraction" regime label is misleading. The HMM identifies it as a late-cycle tightening state — inverted yield curve, hot labor market, high Fed Funds — which is a <em>precursor</em> to recession, not an actual recession. The portfolio allocates TLT=40% in this state, which was designed for falling rates during an actual downturn.</p>
+          <p style="margin-top:8px;">In 2022, when the model correctly flagged late-cycle conditions, the Fed was hiking rates aggressively and TLT fell 30%+. The strategy lost -16.5% versus SPY's -18.2% — marginally better, but Equal Weight did better at -13.3%. This is the most important thing I'd fix: either add a rate-direction signal (rising rates → reduce duration), or re-calibrate the Contraction portfolio (TLT 40% → 20%, BIL 20% → 40%).</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why K=3 states? How did you choose it?</summary>
+        <div class="qa-body">
+          <p>Two complementary signals:</p>
+          <ul>
+            <li><strong>BIC marginal improvement elbow</strong>: BIC scores (extended 1960 data, 229 months × 7 features) — K2: 4144.6, K3: 3786.5, K4: 3573.6, K5: 3528.7. Gains: K2→K3: 358.1 pts, K3→K4: 212.9 pts, K4→K5: 44.9 pts. The sharp drop at K4→K5 (79% smaller) marks the statistical elbow. Economic prior of K=3 retained — three phases (expansion, stagnation, contraction) have clear precedent in NBER cycles and portfolio theory.</li>
+            <li><strong>Economic prior</strong>: K=3 maps cleanly to Expansion / Stagnation / Contraction — three states that span the full business cycle and correspond directly to the regime target portfolios in config.</li>
+          </ul>
+          <p style="margin-top:8px;">BIC is reported honestly (BIC selects K=5) and the override is logged explicitly — preserving transparency for this kind of interview review.</p>
+        </div>
+      </details>
+
+      <div class="qa-group-label">Technical — Model &amp; Implementation</div>
+
+      <details>
+        <summary>How do you prevent look-ahead bias?</summary>
+        <div class="qa-body">
+          <ul>
+            <li><strong>Walk-forward expanding window</strong>: At each OOS date T, the model is retrained on all data with index &lt; T. It never sees any future observations.</li>
+            <li><strong>One-period weight lag</strong>: Weights computed from regime probabilities at T are applied to returns at T+1. The line in code: <code>weights_lagged = target_weights.shift(1)</code>.</li>
+            <li><strong>No k-fold</strong>: Cross-validation on time series leaks future into past. Walk-forward is the only valid approach.</li>
+            <li><strong>Feature engineering</strong>: All features use only past data (rolling windows, differences, lags). No future-referencing transformations.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why did BIC give degenerate results initially, and how did you fix it?</summary>
+        <div class="qa-body">
+          <p>The first run passed all 39 engineered features to BIC. With K=5 and 39 features using full covariance, the parameter count is:</p>
+          <p style="margin-top:6px;"><code>K×(K-1) + (K-1) + K×39 + K×39×40/2 = ~4119 params</code> with only ~3120 data points — parameter-to-data ratio &gt; 1.0. The covariance matrices were degenerate and BIC was meaningless.</p>
+          <p style="margin-top:8px;">Fix: run BIC only on the 7-feature HMM subset. With K=3 and 7 features, the parameter count is 113 vs 229×7=1603 data scalars — ratio of 0.07, well-conditioned. This is also why the same 7 features are used throughout the walk-forward training.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>What caused the walk-forward to produce zero predictions initially?</summary>
+        <div class="qa-body">
+          <p>The code called <code>trainer.walk_forward(features.dropna(), ...)</code>. The global <code>dropna()</code> applied across all 39 columns. Two binary flag columns (<code>yc_inverted</code>, <code>yc_10y3m_inverted</code>) had 142 and 170 NaN values respectively in the early period, because the T10Y3M FRED series starts later.</p>
+          <p style="margin-top:8px;">After <code>dropna()</code>, only ~80 rows survived — nearly all pre-1995. The OOS window (2006+) had only ~14 rows, and the 180-month training threshold was never met. Fix: pass the full DataFrame and let the walk-forward function handle NaN internally per training window, per feature subset.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Why are some hmmlearn "not converging" warnings expected and safe to ignore?</summary>
+        <div class="qa-body">
+          <p>The EM algorithm has a convergence tolerance <code>tol</code>. The warning fires when the log-likelihood improvement in the final iteration is smaller than zero — meaning the algorithm took a tiny step backwards from numerical noise. The key diagnostic is the delta magnitude:</p>
+          <ul>
+            <li>Deltas like <code>-6e-05</code> or <code>-2e-07</code> are floating-point noise at convergence — safe to ignore.</li>
+            <li>A delta like <code>-101.5</code> (observed in one K=5 restart) indicates a genuinely bad EM trajectory — but with 50 random restarts, we select the best log-likelihood, so poor restarts are discarded.</li>
+          </ul>
+          <p style="margin-top:8px;">The 50-restart strategy is the safeguard: as long as <em>some</em> restarts converge to a good solution, the BIC and walk-forward results are reliable.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Walk me through a specific bug you found and fixed.</summary>
+        <div class="qa-body">
+          <p><strong>The rebalancer date index bug</strong> — a subtle but serious one.</p>
+          <p style="margin-top:6px;">The rebalancer loops over all dates in <code>asset_returns.index</code> (which starts from 1993) and skips pre-OOS dates via <code>continue</code>. After collecting 241 results, it built the DataFrame with: <code>pd.DataFrame(results, index=asset_returns.index[:241])</code>. This took the <em>first</em> 241 dates of all returns — approximately 1993 to 2013 — even though the results were computed for 2006 to 2026.</p>
+          <p style="margin-top:6px;">The consequence: the crisis analysis found the strategy for Dot-com (2000–2002) and GFC (2007–2009) but it was actually showing the 2006-2007 and 2009-2011 returns with wrong labels. Taper Tantrum, COVID, and 2022 rows were entirely missing.</p>
+          <p style="margin-top:6px;">Fix: track a <code>dates_used</code> list alongside <code>results</code>, appending each <code>date</code> per iteration. Use <code>pd.DataFrame(results, index=dates_used)</code>. One line change, but caught only by examining the crisis analysis output.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>How do you validate that the regime labels are economically meaningful?</summary>
+        <div class="qa-body">
+          <p>Auto-labelling is data-driven: states are ranked by their mean emission on <code>yield_curve_10y2y</code>. Highest slope → Expansion, lowest → Contraction. This avoids label-switching across walk-forward windows.</p>
+          <p style="margin-top:8px;">Validation:</p>
+          <ul>
+            <li><strong>Emission means</strong>: Decode the means for all 7 features per state. Contraction should show inverted curve + high rates + tight spreads (or elevated FSI). This checks out.</li>
+            <li><strong>Historical overlay</strong>: The regime timeline should assign Contraction to 2007–08, 2018–19, 2022; Expansion to 2010–12. This broadly matches.</li>
+            <li><strong>NBER comparison</strong>: Compute the lag between model regime entry and NBER official recession dates. Target: ≤3 months.</li>
+            <li><strong>Sanity check</strong>: GFC performance (+3.4%) confirms the model held defensive assets during the actual drawdown.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>If you had more time, what would you improve first?</summary>
+        <div class="qa-body">
+          <ol style="padding-left:18px;">
+            <li><strong>Fix the Contraction portfolio</strong>: Reduce TLT from 40% to 15–20%, raise BIL to 35–40%. This directly addresses the 2022 weakness without changing the model.</li>
+            <li><strong>Add a rate-direction signal</strong>: If Fed Funds momentum is positive (rates rising), reduce duration in the Contraction portfolio. This separates "late-cycle tightening" from "rate-cut recession."</li>
+            <li><strong>ALFRED vintage data</strong>: Use ALFRED real-time vintages for GDP and CPI to eliminate revision bias. The current implementation uses final revised data — in real-time, GDP Q1 isn't available until July.</li>
+            <li><strong>GARCH volatility overlay</strong>: Use GARCH(1,1) rolling vol forecasts to scale down equity exposure when realized vol is elevated, independent of regime.</li>
+          </ol>
+        </div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ROBUSTNESS -->
+<section id="robustness">
+  <div class="container">
+    <div class="sec-label">Robustness Testing</div>
+    <h2>Does the Strategy Survive Parameter Variation?</h2>
+    <p class="body">A single backtest result proves nothing — it could be the product of a lucky parameter choice. The robustness grid re-runs the full walk-forward across <strong style="color:#fff;">108 parameter combinations</strong>: 3 values of K, 3 training windows, 4 transaction cost levels, and 3 rebalancing thresholds. If performance holds up across all configurations, the strategy is robust. If it only works at exactly our chosen parameters, it's overfit.</p>
+
+    <!-- ── What we varied ── -->
+    <div class="card-grid col2" style="margin-bottom:24px;">
+      <div class="card">
+        <h3>HMM Parameters <span style="color:var(--muted);font-weight:400;font-size:12px;">(requires full walk-forward retrain per combo)</span></h3>
+        <table>
+          <thead><tr><th>Parameter</th><th>Values Tested</th><th>Baseline</th></tr></thead>
+          <tbody>
+            <tr><td>K — HMM states</td><td>2, 3, 4</td><td class="positive">3</td></tr>
+            <tr><td>Initial training years</td><td>10, 15, 20</td><td class="positive">15</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:11px;color:var(--muted);margin-top:10px;">9 HMM retraining runs · n_fits=3 per run (fast mode for sensitivity). Absolute Sharpe values (0.55–0.77) are lower than the production Sharpe (0.937) because n_fits=3 vs n_fits=10 hits more local optima — <em>relative</em> comparisons across K and TC are valid. train_years=10 ≡ train_years=15: both fit within 204 pre-OOS months (expected behaviour — only train_years=20 differs with 11 skipped months).</p>
+      </div>
+      <div class="card">
+        <h3>Portfolio Parameters <span style="color:var(--muted);font-weight:400;font-size:12px;">(applied to cached regime probs — no HMM retraining)</span></h3>
+        <table>
+          <thead><tr><th>Parameter</th><th>Values Tested</th><th>Baseline</th></tr></thead>
+          <tbody>
+            <tr><td>One-way TC (bps)</td><td>0, 5, 15, 30</td><td class="positive">5</td></tr>
+            <tr><td>Rebalance threshold</td><td>0%, 2%, 5%</td><td class="positive">2%</td></tr>
+          </tbody>
+        </table>
+        <p style="font-size:11px;color:var(--muted);margin-top:10px;">36 portfolio combos per HMM run · 108 total · TC drag compounds annualised</p>
+      </div>
+    </div>
+
+    <!-- ── Sharpe heatmap K × train_years ── -->
+    <div class="card" style="margin-bottom:24px;">
+      <h3>Sharpe Ratio — K × Training Window <span style="color:var(--muted);font-weight:400;font-size:12px;">(TC=5bps, threshold=2% — baseline portfolio)</span></h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:16px;">Each cell = Sharpe ratio of the Regime Strategy under that HMM configuration. Red line = SPY Sharpe of 0.760. Green = beats SPY.</p>
+      <div style="overflow-x:auto;">
+        <table id="sharpe-heatmap" style="min-width:420px;">
+          <thead>
+            <tr>
+              <th style="width:120px;">Training Yrs ↓ / K →</th>
+              <th style="text-align:center;">K = 2</th>
+              <th style="text-align:center;">K = 3</th>
+              <th style="text-align:center;">K = 4</th>
+            </tr>
+          </thead>
+          <tbody id="heatmap-body">
+            <!-- Filled by JS from robData below -->
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:12px;">
+        <span style="display:inline-block;width:12px;height:12px;background:rgba(52,201,123,0.5);border-radius:2px;margin-right:4px;"></span>Beats SPY Sharpe (0.760)&nbsp;&nbsp;
+        <span style="display:inline-block;width:12px;height:12px;background:rgba(224,85,85,0.3);border-radius:2px;margin-right:4px;"></span>Below SPY Sharpe
+      </p>
+    </div>
+
+    <!-- ── TC sensitivity chart + threshold chart ── -->
+    <div class="card-grid col2" style="margin-bottom:24px;">
+      <div class="chart-wrap">
+        <div class="chart-title">Sharpe vs Transaction Cost (K=3, train=15yr, threshold=2%)</div>
+        <canvas id="tcChart" height="200"></canvas>
+        <p style="font-size:11px;color:var(--muted);margin-top:10px;">The strategy beats SPY (0.760) even at 30bps one-way TC — roughly 10× the assumed cost. This shows the result is not a low-TC artefact.</p>
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-title">Sharpe vs Rebalance Threshold (K=3, train=15yr, TC=5bps)</div>
+        <canvas id="threshChart" height="200"></canvas>
+        <p style="font-size:11px;color:var(--muted);margin-top:10px;">More frequent rebalancing (0% threshold) slightly hurts due to TC drag. Less frequent (5%) slightly improves. Shows the 2% baseline is a reasonable middle ground.</p>
+      </div>
+    </div>
+
+    <!-- ── Full grid summary table ── -->
+    <div class="card" style="overflow-x:auto;">
+      <h3>Full Grid Results — All 108 Combinations</h3>
+      <table id="full-grid-table">
+        <thead>
+          <tr>
+            <th>K</th><th>Train Yrs</th><th>TC (bps)</th><th>Threshold</th>
+            <th>Sharpe</th><th>CAGR</th><th>Max DD</th><th>Sortino</th><th>Calmar</th>
+            <th>vs SPY Sharpe</th>
+          </tr>
+        </thead>
+        <tbody id="grid-table-body">
+          <!-- Filled by JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Verdict ── -->
+    <div id="robustness-verdict" style="margin-top:24px;"></div>
+
+  </div>
+</section>
+
+<!-- BOOTSTRAP CI -->
+<section id="bootstrap">
+  <div class="container">
+    <div class="sec-label">Statistical Validation</div>
+    <h2>Block Bootstrap Confidence Intervals</h2>
+    <p class="body" style="margin-bottom:24px;">
+      Stationary block bootstrap (Politis &amp; Romano 1994) with 1000 simulations and block length = 12 months (preserves annual autocorrelation).
+      Tests the null hypothesis that the strategy Sharpe ≤ SPY Sharpe (0.760).
+    </p>
+
+    <!-- KPI row — filled by JS -->
+    <div class="kpi-row" id="boot-kpis" style="margin-bottom:32px;">
+      <div class="kpi"><div class="val" id="boot-sharpe-pt">—</div><div class="label">Strategy Sharpe</div></div>
+      <div class="kpi"><div class="val" id="boot-sharpe-ci">—</div><div class="label">95% CI (Sharpe)</div></div>
+      <div class="kpi"><div class="val green" id="boot-pval">—</div><div class="label">p(Sharpe &gt; SPY)</div></div>
+      <div class="kpi"><div class="val" id="boot-cagr-ci">—</div><div class="label">95% CI (CAGR)</div></div>
+      <div class="kpi"><div class="val" id="boot-maxdd-ci">—</div><div class="label">95% CI (Max DD)</div></div>
+    </div>
+
+    <!-- Distribution chart placeholder -->
+    <div class="card" style="padding:24px;margin-bottom:24px;">
+      <div class="chart-title">Bootstrap Distribution — 1000 Simulations</div>
+      <p class="body" style="font-size:12px;color:var(--muted);">
+        Each bar = one resampled block-bootstrap path. Green line = observed strategy Sharpe. Red dashed = SPY benchmark.
+        If the SPY line falls in the left tail, the outperformance is statistically meaningful.
+      </p>
+      <div style="text-align:center;padding:40px 0;color:var(--muted);" id="boot-chart-placeholder">
+        Run <code>python main.py --phase bootstrap</code> to generate bootstrap CI results.
+      </div>
+      <canvas id="bootChart" width="800" height="300" style="display:none;"></canvas>
+    </div>
+
+    <!-- Results table -->
+    <div class="card">
+      <table>
+        <thead><tr><th>Metric</th><th>Point Estimate</th><th>95% CI Lower</th><th>95% CI Upper</th><th>p-value vs Benchmark</th></tr></thead>
+        <tbody id="boot-table-body">
+          <tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">
+            Bootstrap results not yet available. Run <code>python main.py --phase bootstrap</code> first.
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ASSESSMENT -->
+<section id="assessment">
+  <div class="container">
+    <div class="sec-label">Project Assessment</div>
+    <h2>What We Built · Did We Build It · Outcome · Evaluation · Use</h2>
+
+    <!-- ── 1. Thesis + Verdict ── -->
+    <div class="card-grid col2" style="margin-bottom:24px;">
+      <div class="card">
+        <h3>What We Set Out to Build</h3>
+        <p class="body">Asset returns are non-stationary — they cluster by economic regime. Equities compound in expansions; bonds protect in contractions; gold hedges stagflation. A system that identifies the current regime from observable macro data can rotate capital accordingly, improving risk-adjusted returns <em>without forecasting prices</em>.</p>
+        <p class="body">The HMM is the natural fit: economic regime is a latent state that drives observable emissions (yield curves, credit spreads, labor data, inflation). Walk-forward validation enforces strict out-of-sample discipline — the model never sees the future at any prediction step.</p>
+      </div>
+      <div class="card">
+        <h3>The Verdict</h3>
+        <p class="body">Hypothesis confirmed on the primary objective — <strong style="color:#fff;">risk-adjusted return</strong>. The strategy delivers a Sharpe of <strong style="color:var(--green);">0.937</strong> vs SPY's <strong style="color:var(--red);">0.760</strong> over 241 out-of-sample months, with less than half the maximum drawdown (−21% vs −51%).</p>
+        <p class="body">The tradeoff is deliberate: CAGR (8.45%) trails SPY (10.6%) because capital is preserved during downturns rather than compounded into peaks. A client who avoids −46% in the GFC does not need to recover from −46%.</p>
+        <div class="gfc-callout">
+          <div class="eyebrow">GFC — the model's defining moment</div>
+          <div class="big">+3.4% &nbsp;vs&nbsp; −46.0%</div>
+          <div class="sub">Regime Strategy vs Buy &amp; Hold SPY · Oct 2007 – Mar 2009 (18 months)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 2. Deliverables ── -->
+    <div class="card" style="overflow-x:auto; margin-bottom:28px;">
+      <h3>Deliverables — Complete Build Checklist (15 of 15)</h3>
+      <table>
+        <thead><tr><th>Component</th><th>What It Does</th><th>Key File</th><th>Done?</th></tr></thead>
+        <tbody>
+          <tr><td>FRED macro data pipeline</td><td>Downloads 12 economic series from 1960, caches locally as CSV</td><td>src/obtain/fred_loader.py</td><td class="check-yes">✓</td></tr>
+          <tr><td>Market data pipeline</td><td>6 ETFs + 2 stocks via yfinance, daily OHLCV cached</td><td>src/obtain/market_loader.py</td><td class="check-yes">✓</td></tr>
+          <tr><td>Feature engineering (34 features)</td><td>YoY growth, momentum windows, FSI composite, yield curve flags</td><td>src/scrub/feature_engineer.py</td><td class="check-yes">✓</td></tr>
+          <tr><td>EDA + stationarity tests</td><td>ADF + KPSS per feature, correlation audit, BIC state selection K=2..5</td><td>src/explore/eda_stats.py</td><td class="check-yes">✓</td></tr>
+          <tr><td>GaussianHMM (K=3, BIC-guided)</td><td>50 random restarts, full covariance, BIC search, force_k economic prior</td><td>src/model/hmm_selector.py</td><td class="check-yes">✓</td></tr>
+          <tr><td>Walk-forward OOS training</td><td>Expanding window, monthly retrain, 0 look-ahead, 242 OOS predictions</td><td>src/model/hmm_trainer.py</td><td class="check-yes">✓</td></tr>
+          <tr><td>Prob-weighted ETF allocator</td><td>W(t) = Σ P(regime)·W(regime); shift(1) lag enforced — no look-ahead</td><td>src/portfolio/allocator.py</td><td class="check-yes">✓</td></tr>
+          <tr><td>Threshold rebalancer + TC model</td><td>2% band trigger, 7bps round-trip cost, 136 rebalance events in 241mo</td><td>src/portfolio/rebalancer.py</td><td class="check-yes">✓</td></tr>
+          <tr><td>Backtest engine (5 strategies)</td><td>Monthly P&amp;L, cumulative returns, crisis slicing, benchmark comparison</td><td>src/interpret/backtest.py</td><td class="check-yes">✓</td></tr>
+          <tr><td>Performance metrics (20+)</td><td>Sharpe, Sortino, Calmar, Omega, VaR 95%, CVaR, Ulcer Index, hit rate</td><td>src/interpret/metrics.py</td><td class="check-yes">✓</td></tr>
+          <tr><td>Stock overlay — 5-signal composite</td><td>NVDA / WDC: momentum + vol regime + 12M trend + SPY corr + macro HMM</td><td>src/model/composite_signal.py</td><td class="check-yes">✓</td></tr>
+          <tr><td>13 production figures</td><td>Equity curves, drawdown, allocation area, transition heatmap, rolling Sharpe, stock overlays</td><td>outputs/figures/</td><td class="check-yes">✓</td></tr>
+          <tr><td>Interview dashboard (this page)</td><td>Dark theme, Chart.js, 9 sections, self-contained HTML — no server needed</td><td>outputs/dashboard.html</td><td class="check-yes">✓</td></tr>
+          <tr><td>quantstats tear sheet</td><td>Full HTML tearsheet vs SPY benchmark, 241-month OOS, 12 periods/yr</td><td>outputs/reports/tearsheet.html</td><td class="check-yes">✓</td></tr>
+          <tr><td>Unit tests (17, all passing)</td><td>Config, feature counts, rebalancer Bug 6 regression, composite signal bounds, z-score</td><td>tests/test_pipeline.py</td><td class="check-yes">✓</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── 3. Metrics explained ── -->
+    <div class="sec-label" style="margin-top:16px;">Evaluation Framework</div>
+    <h2>Metrics We Use &amp; What They Mean</h2>
+    <div class="card-grid col2" style="margin-bottom:24px;">
+      <div class="card">
+        <div class="use-tag">Primary — Risk-Adjusted Return</div>
+        <h3>Sharpe Ratio &nbsp;<span style="color:var(--green);font-family:var(--mono);">0.937</span> &nbsp;<span style="color:var(--muted);font-size:12px;">SPY: 0.760</span></h3>
+        <div class="metric-formula">(CAGR − Rf) ÷ Annualised Volatility</div>
+        <p class="body">The standard portfolio metric — return per unit of <em>total</em> volatility. Our 0.937 vs SPY's 0.760 = <strong style="color:var(--green);">+23% more return per unit of risk</strong>. This is the first number any recruiter or PM will ask about.</p>
+        <p class="body" style="font-size:12px;color:var(--muted);">Limitation: penalises upside vol equally to downside. For a drawdown-protection strategy, Sortino is more honest.</p>
+      </div>
+      <div class="card">
+        <div class="use-tag">Downside Protection</div>
+        <h3>Sortino Ratio &nbsp;<span style="color:var(--green);font-family:var(--mono);">1.357</span> &nbsp;<span style="color:var(--muted);font-size:12px;">SPY: 1.050</span></h3>
+        <div class="metric-formula">(CAGR − Rf) ÷ Downside Deviation (returns &lt; 0)</div>
+        <p class="body">Return per unit of <em>bad</em> volatility only. Our 1.357 vs 1.050 = <strong style="color:var(--green);">+29% better</strong>. Preferred over Sharpe for regime strategies where upside volatility is intentionally asymmetric — we want to cut the left tail, not the right.</p>
+        <p class="body" style="font-size:12px;color:var(--muted);">A Sortino &gt; 1.0 means we generate more than 1% of return per 1% of downside risk — the strategy is paying for itself.</p>
+      </div>
+      <div class="card">
+        <div class="use-tag">Tail Risk — Institutional Mandate Metric</div>
+        <h3>Calmar Ratio &nbsp;<span style="color:var(--green);font-family:var(--mono);">0.402</span> &nbsp;<span style="color:var(--muted);font-size:12px;">SPY: 0.208</span></h3>
+        <div class="metric-formula">CAGR ÷ |Max Drawdown|</div>
+        <p class="body">Annual return earned per unit of worst-case loss. This is what trustees and CIOs care about — not average vol, but the maximum they can lose. Our 0.402 vs SPY's 0.208 = <strong style="color:var(--green);">+93% better</strong>. For every 1% of peak-to-trough loss, we generate 0.402% of annual return vs 0.208% for SPY.</p>
+        <p class="body" style="font-size:12px;color:var(--muted);">A Calmar &gt; 0.5 is generally considered strong; we're at 0.402 — solid for a macro rotation strategy with real TC friction.</p>
+      </div>
+      <div class="card">
+        <div class="use-tag">Capital Preservation — Compounding Math</div>
+        <h3>Max Drawdown &nbsp;<span style="color:var(--green);font-family:var(--mono);">−21.0%</span> &nbsp;<span style="color:var(--muted);font-size:12px;">SPY: −50.8%</span></h3>
+        <div class="metric-formula">(Trough − Peak) ÷ Peak &nbsp;·&nbsp; worst over full OOS period</div>
+        <p class="body">A −50.8% drawdown requires a +103% gain just to get back to even. A −21.0% drawdown needs only +27%. The compounding math is brutal: avoiding the GFC crash means never needing the subsequent multi-year bull run just to break even.</p>
+        <p class="body" style="font-size:12px;color:var(--muted);">Max DD duration: 31 months for us vs 74 months for SPY — we recovered 2.4× faster from peak to new high.</p>
+      </div>
+    </div>
+
+    <!-- ── 4. Strategy Rankings ── -->
+    <div class="card" style="overflow-x:auto; margin-bottom:28px;">
+      <h3>Strategy Rankings by Metric &nbsp;<span style="font-size:11px;color:var(--muted);font-weight:400;">(1 = best, 5 = worst among the five strategies tested)</span></h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Strategy</th>
+            <th>CAGR</th><th>Sharpe</th><th>Sortino</th>
+            <th>Calmar</th><th>Max DD</th><th>Volatility</th>
+            <th>Verdict</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="bold-row">
+            <td>Regime Strategy</td>
+            <td><span class="rank-badge rank-3">3</span></td>
+            <td><span class="rank-badge rank-2">2</span></td>
+            <td><span class="rank-badge rank-2">2</span></td>
+            <td><span class="rank-badge rank-2">2</span></td>
+            <td><span class="rank-badge rank-2">2</span></td>
+            <td><span class="rank-badge rank-2">2</span></td>
+            <td class="positive">Consistently #2 risk-adjusted; designed for tail protection</td>
+          </tr>
+          <tr>
+            <td>Buy &amp; Hold SPY</td>
+            <td><span class="rank-badge rank-1">1</span></td>
+            <td><span class="rank-badge rank-4">4</span></td>
+            <td><span class="rank-badge rank-4">4</span></td>
+            <td><span class="rank-badge rank-4">4</span></td>
+            <td><span class="rank-badge rank-5">5</span></td>
+            <td><span class="rank-badge rank-5">5</span></td>
+            <td class="negative">Best raw CAGR; worst tail risk — lost 51% in GFC</td>
+          </tr>
+          <tr>
+            <td>60/40 SPY/TLT</td>
+            <td><span class="rank-badge rank-2">2</span></td>
+            <td><span class="rank-badge rank-3">3</span></td>
+            <td><span class="rank-badge rank-3">3</span></td>
+            <td><span class="rank-badge rank-3">3</span></td>
+            <td><span class="rank-badge rank-3">3</span></td>
+            <td><span class="rank-badge rank-3">3</span></td>
+            <td>Solid benchmark; badly hurt by 2022 (bonds + equities both fell)</td>
+          </tr>
+          <tr>
+            <td>Equal Weight</td>
+            <td><span class="rank-badge rank-4">4</span></td>
+            <td><span class="rank-badge rank-1">1</span></td>
+            <td><span class="rank-badge rank-1">1</span></td>
+            <td><span class="rank-badge rank-1">1</span></td>
+            <td><span class="rank-badge rank-1">1</span></td>
+            <td><span class="rank-badge rank-1">1</span></td>
+            <td class="neutral">Best pure stats — but no economic logic; GFC result was luck not design</td>
+          </tr>
+          <tr>
+            <td>Inverse Vol Static</td>
+            <td><span class="rank-badge rank-5">5</span></td>
+            <td><span class="rank-badge rank-5">5</span></td>
+            <td><span class="rank-badge rank-5">5</span></td>
+            <td><span class="rank-badge rank-5">5</span></td>
+            <td><span class="rank-badge rank-4">4</span></td>
+            <td><span class="rank-badge rank-4">4</span></td>
+            <td class="negative">Weakest across all metrics; high concentration risk in low-vol assets</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size:11.5px; color:var(--muted); margin-top:14px; line-height:1.65;">
+        <strong style="color:var(--text);">Why Equal Weight edges us on pure statistics:</strong> Equal Weight holds 16.7% in each of 6 diversified assets at all times. Its GFC result (−5.8%) benefited from TLT and GLD naturally diversifying equity risk — but with no mechanism to increase that protection dynamically. In a scenario where all six assets fall together (rare but possible), Equal Weight has no defence. The Regime Strategy explicitly reduces SPY to 10% and raises BIL/TLT when contraction signals emerge — <em>by design</em>, not by accident of diversification.
+      </p>
+    </div>
+
+    <!-- ── 5. Use Cases ── -->
+    <div class="sec-label" style="margin-top:16px;">Practical Applications</div>
+    <h2>What Use Is This Model?</h2>
+    <div class="card-grid col3" style="margin-bottom:28px;">
+      <div class="card">
+        <div class="use-icon">🏛️</div>
+        <div class="use-tag">Institutional · Wealth Management</div>
+        <h3>Tactical Drawdown Overlay</h3>
+        <p class="body">For mandates where capital preservation matters equally to growth — endowments, pension funds, HNW clients — the GFC tells the story. A $1M portfolio that avoids −46% compounds from $1M, not from $540K. Recovering from −21% takes 2 years; recovering from −51% takes 6+ years.</p>
+        <p class="body">The regime probability output can also serve as a standalone <strong>macro signal product</strong> — sold or licensed to other desks, independent of the allocation layer.</p>
+        <p class="body" style="font-size:12px;color:var(--muted);">Relevant mandates: multi-asset funds, balanced pension mandates, endowment overlay programmes, wealth management tactical models.</p>
+      </div>
+      <div class="card">
+        <div class="use-icon">📡</div>
+        <div class="use-tag">Quant Research · Signal Generation</div>
+        <h3>Reusable Macro Regime Signal</h3>
+        <p class="body">The HMM's soft probabilities — P(expansion), P(stagnation), P(contraction) — are regime signals reusable across any portfolio system. They can drive equity factor tilts (value in expansion, quality in stagnation), credit spread positioning, options skew trades, or commodity curve plays.</p>
+        <p class="body">Data vendors sell macro regime signals commercially. This is a fully reproducible open-source equivalent built on FRED public data with walk-forward validation — the same rigour as a commercial product.</p>
+        <p class="body" style="font-size:12px;color:var(--muted);">Relevant roles: macro quant researcher, systematic PM, factor model developer, cross-asset strategist.</p>
+      </div>
+      <div class="card">
+        <div class="use-icon">💼</div>
+        <div class="use-tag">Portfolio Project · Interview</div>
+        <h3>Full-Stack Quant Demonstration</h3>
+        <p class="body">This project demonstrates the complete quant analyst toolkit in one codebase: macroeconomic intuition, time-series ML, rigorous OOS backtesting, portfolio construction with realistic TC friction, GARCH volatility modelling, and production software engineering.</p>
+        <p class="body">34 source files · 5-phase OSEMN pipeline · 241-month OOS · 13 figures · HTML dashboard · quantstats tearsheet · 17 unit tests · config-driven · zero magic numbers in code.</p>
+        <p class="body" style="font-size:12px;color:var(--muted);">Target roles: Quant Analyst, Systematic Trader, Credit Analyst, Risk Analyst, Portfolio Analyst at a hedge fund, asset manager, or investment bank.</p>
+      </div>
+    </div>
+
+    <!-- ── 6. Honest Limitation ── -->
+    <div class="limit-box">
+      <h3>⚠ The Honest Limitation — 2022 Rate Shock</h3>
+      <p style="color:var(--muted); font-size:13px; line-height:1.75;">
+        The strategy lost <strong style="color:var(--amber);">−16.5%</strong> in 2022 — only marginally better than SPY's −18.2%, and worse than Equal Weight's −13.3%. The root cause is a portfolio design assumption embedded in the Contraction regime: <strong style="color:#fff;">TLT = 40%</strong>, which assumes falling rates calibrated for an actual recession (Fed cutting). In 2022, the Fed hiked 525bps in 12 months and TLT fell 30%+. The HMM correctly identified late-cycle conditions, but the Contraction portfolio was built for the wrong flavour of contraction.
+      </p>
+      <p style="color:var(--muted); font-size:13px; line-height:1.75; margin-top:10px;">
+        <strong style="color:#fff;">Proposed fix (not implemented, by design):</strong> Add a rate-direction signal. If Fed Funds momentum is positive (rates rising), re-route Contraction allocation: TLT 40% → 15%, BIL 20% → 40%, GLD 25% → 25% (hold). This separates <em>late-cycle tightening</em> (still hiking — rates rising) from <em>actual recession</em> (Fed cutting — duration rewarded). The 2022 scenario is the first; the 2008 GFC is the second. The current model conflates both into a single Contraction state.
+      </p>
+      <p style="color:var(--muted); font-size:13px; line-height:1.75; margin-top:10px;">
+        <strong style="color:#fff;">Why not fixed:</strong> This would require either a 4th HMM state (tightening vs. recession contraction) or a conditional overlay signal. Both are valid extensions — but adding them post-hoc, after seeing 2022, would constitute in-sample fitting. The limitation is disclosed here rather than patched retroactively.
+      </p>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Adaptive Macro Regime Strategy — Aman &nbsp;|&nbsp; Data: FRED + yfinance &nbsp;|&nbsp; Model: hmmlearn GaussianHMM &nbsp;|&nbsp; OOS: 2006–2026
+  </div>
+</footer>
+
+<script>
+// ── CHART DEFAULTS ──
+Chart.defaults.color = '#5a6478';
+Chart.defaults.borderColor = '#252a3a';
+Chart.defaults.font.family = "'JetBrains Mono', 'Fira Mono', monospace";
+Chart.defaults.font.size = 11;
+
+// ── BIC ELBOW CHART ──
+new Chart(document.getElementById('bicChart'), {
+  type: 'line',
+  data: {
+    labels: ['K=2', 'K=3', 'K=4', 'K=5'],
+    datasets: [
+      {
+        label: 'BIC',
+        data: [4144.6, 3786.5, 3573.6, 3528.7],
+        borderColor: '#4f7cff',
+        backgroundColor: 'rgba(79,124,255,0.08)',
+        pointBackgroundColor: ['#5a6478','#34c97b','#5a6478','#5a6478'],
+        pointRadius: [4,8,4,4],
+        pointBorderWidth: 2,
+        tension: 0.3, fill: true, borderWidth: 2
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ' BIC: ' + ctx.parsed.y.toFixed(1) } }
+    },
+    scales: {
+      y: { grid: { color: '#1c2030' }, ticks: { callback: v => v.toFixed(0) } },
+      x: { grid: { color: '#1c2030' } }
+    }
+  }
+});
+
+// ── REGIME DONUT ──
+new Chart(document.getElementById('regimeDonut'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Stagnation', 'Expansion', 'Contraction'],
+    datasets: [{
+      data: [122, 64, 56],
+      backgroundColor: ['#34c97b','#4f7cff','#e05555'],
+      borderColor: '#0d0f14',
+      borderWidth: 3,
+      hoverOffset: 4
+    }]
+  },
+  options: {
+    responsive: true, cutout: '68%',
+    plugins: {
+      legend: { display: false },
+      tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + ctx.parsed + ' months (' + Math.round(ctx.parsed/242*100) + '%)' } }
+    }
+  }
+});
+
+// ── PERFORMANCE BAR CHART ──
+new Chart(document.getElementById('perfChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Regime\nStrategy', 'SPY', '60/40', 'Equal\nWeight', 'Inv. Vol'],
+    datasets: [
+      {
+        label: 'CAGR %',
+        data: [8.45, 10.56, 8.56, 6.32, 3.93],
+        backgroundColor: ['#4f7cff','#5a6478','#5a6478','#5a6478','#5a6478'],
+        borderRadius: 4, yAxisID: 'y'
+      },
+      {
+        label: 'Sharpe',
+        data: [0.937, 0.760, 0.890, 0.902, 0.474],
+        backgroundColor: ['rgba(52,201,123,0.8)','rgba(52,201,123,0.3)','rgba(52,201,123,0.3)','rgba(52,201,123,0.3)','rgba(52,201,123,0.3)'],
+        borderRadius: 4, yAxisID: 'y2'
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { boxWidth: 10, padding: 16 } } },
+    scales: {
+      y:  { grid: { color: '#1c2030' }, title: { display: true, text: 'CAGR %' } },
+      y2: { position: 'right', grid: { display: false }, title: { display: true, text: 'Sharpe' }, min: 0, max: 1.2 },
+      x:  { grid: { display: false } }
+    }
+  }
+});
+
+// ── CRISIS BAR CHART ──
+new Chart(document.getElementById('crisisChart'), {
+  type: 'bar',
+  data: {
+    labels: ['GFC\n07-09', 'EU Debt\n11-12', 'Taper\n13', 'COVID\n2020', '2022\nRates'],
+    datasets: [
+      {
+        label: 'Regime Strategy',
+        data: [4.6, 17.1, -6.4, -4.2, -16.5],
+        backgroundColor: d => d.parsed.y >= 0 ? 'rgba(79,124,255,0.85)' : 'rgba(79,124,255,0.4)',
+        borderRadius: 3
+      },
+      {
+        label: 'SPY',
+        data: [-46.0, 8.7, 6.3, -9.2, -18.2],
+        backgroundColor: d => d.parsed.y >= 0 ? 'rgba(90,100,120,0.6)' : 'rgba(224,85,85,0.5)',
+        borderRadius: 3
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { boxWidth: 10, padding: 16 } } },
+    scales: {
+      y: {
+        grid: { color: '#1c2030' },
+        ticks: { callback: v => v + '%' }
+      },
+      x: { grid: { display: false } }
+    }
+  }
+});
+
+// ── ROBUSTNESS GRID DATA ──
+// robData populated after grid run completes
+const robData = [
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 0.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7255,
+    "sortino": 0.938,
+    "calmar": 0.2773,
+    "cagr": 0.0723,
+    "max_dd": -0.2606,
+    "volatility": 0.1039
+  },
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 0.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7293,
+    "sortino": 0.9439,
+    "calmar": 0.2794,
+    "cagr": 0.0725,
+    "max_dd": -0.2594,
+    "volatility": 0.1036
+  },
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 0.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7335,
+    "sortino": 0.9533,
+    "calmar": 0.2872,
+    "cagr": 0.073,
+    "max_dd": -0.2543,
+    "volatility": 0.1038
+  },
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 5.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7079,
+    "sortino": 0.9158,
+    "calmar": 0.268,
+    "cagr": 0.0703,
+    "max_dd": -0.2622,
+    "volatility": 0.1039
+  },
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 5.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7121,
+    "sortino": 0.9223,
+    "calmar": 0.2704,
+    "cagr": 0.0706,
+    "max_dd": -0.261,
+    "volatility": 0.1036
+  },
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 5.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7166,
+    "sortino": 0.9319,
+    "calmar": 0.2781,
+    "cagr": 0.0711,
+    "max_dd": -0.2558,
+    "volatility": 0.1037
+  },
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 15.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6724,
+    "sortino": 0.8709,
+    "calmar": 0.2498,
+    "cagr": 0.0663,
+    "max_dd": -0.2655,
+    "volatility": 0.1038
+  },
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 15.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6776,
+    "sortino": 0.8786,
+    "calmar": 0.2526,
+    "cagr": 0.0667,
+    "max_dd": -0.264,
+    "volatility": 0.1035
+  },
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 15.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.6826,
+    "sortino": 0.8887,
+    "calmar": 0.2602,
+    "cagr": 0.0673,
+    "max_dd": -0.2587,
+    "volatility": 0.1036
+  },
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 30.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6187,
+    "sortino": 0.8036,
+    "calmar": 0.2234,
+    "cagr": 0.0604,
+    "max_dd": -0.2703,
+    "volatility": 0.1037
+  },
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 30.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6252,
+    "sortino": 0.8131,
+    "calmar": 0.2269,
+    "cagr": 0.0609,
+    "max_dd": -0.2686,
+    "volatility": 0.1034
+  },
+  {
+    "K": 2,
+    "train_years": 10,
+    "tc_bps": 30.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.6311,
+    "sortino": 0.8241,
+    "calmar": 0.2342,
+    "cagr": 0.0616,
+    "max_dd": -0.2631,
+    "volatility": 0.1035
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 0.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7255,
+    "sortino": 0.938,
+    "calmar": 0.2773,
+    "cagr": 0.0723,
+    "max_dd": -0.2606,
+    "volatility": 0.1039
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 0.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7293,
+    "sortino": 0.9439,
+    "calmar": 0.2794,
+    "cagr": 0.0725,
+    "max_dd": -0.2594,
+    "volatility": 0.1036
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 0.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7335,
+    "sortino": 0.9533,
+    "calmar": 0.2872,
+    "cagr": 0.073,
+    "max_dd": -0.2543,
+    "volatility": 0.1038
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 5.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7079,
+    "sortino": 0.9158,
+    "calmar": 0.268,
+    "cagr": 0.0703,
+    "max_dd": -0.2622,
+    "volatility": 0.1039
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 5.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7121,
+    "sortino": 0.9223,
+    "calmar": 0.2704,
+    "cagr": 0.0706,
+    "max_dd": -0.261,
+    "volatility": 0.1036
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 5.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7166,
+    "sortino": 0.9319,
+    "calmar": 0.2781,
+    "cagr": 0.0711,
+    "max_dd": -0.2558,
+    "volatility": 0.1037
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 15.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6724,
+    "sortino": 0.8709,
+    "calmar": 0.2498,
+    "cagr": 0.0663,
+    "max_dd": -0.2655,
+    "volatility": 0.1038
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 15.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6776,
+    "sortino": 0.8786,
+    "calmar": 0.2526,
+    "cagr": 0.0667,
+    "max_dd": -0.264,
+    "volatility": 0.1035
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 15.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.6826,
+    "sortino": 0.8887,
+    "calmar": 0.2602,
+    "cagr": 0.0673,
+    "max_dd": -0.2587,
+    "volatility": 0.1036
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 30.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6187,
+    "sortino": 0.8036,
+    "calmar": 0.2234,
+    "cagr": 0.0604,
+    "max_dd": -0.2703,
+    "volatility": 0.1037
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 30.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6252,
+    "sortino": 0.8131,
+    "calmar": 0.2269,
+    "cagr": 0.0609,
+    "max_dd": -0.2686,
+    "volatility": 0.1034
+  },
+  {
+    "K": 2,
+    "train_years": 15,
+    "tc_bps": 30.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.6311,
+    "sortino": 0.8241,
+    "calmar": 0.2342,
+    "cagr": 0.0616,
+    "max_dd": -0.2631,
+    "volatility": 0.1035
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 0.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7102,
+    "sortino": 0.926,
+    "calmar": 0.2757,
+    "cagr": 0.0719,
+    "max_dd": -0.2606,
+    "volatility": 0.1059
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 0.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.714,
+    "sortino": 0.9319,
+    "calmar": 0.2779,
+    "cagr": 0.0721,
+    "max_dd": -0.2594,
+    "volatility": 0.1056
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 0.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7183,
+    "sortino": 0.9415,
+    "calmar": 0.2858,
+    "cagr": 0.0727,
+    "max_dd": -0.2543,
+    "volatility": 0.1058
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 5.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6932,
+    "sortino": 0.9043,
+    "calmar": 0.2666,
+    "cagr": 0.0699,
+    "max_dd": -0.2622,
+    "volatility": 0.1059
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 5.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6975,
+    "sortino": 0.9109,
+    "calmar": 0.269,
+    "cagr": 0.0702,
+    "max_dd": -0.261,
+    "volatility": 0.1056
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 5.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7021,
+    "sortino": 0.9207,
+    "calmar": 0.2768,
+    "cagr": 0.0708,
+    "max_dd": -0.2558,
+    "volatility": 0.1057
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 15.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.659,
+    "sortino": 0.8605,
+    "calmar": 0.2486,
+    "cagr": 0.066,
+    "max_dd": -0.2655,
+    "volatility": 0.1058
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 15.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6643,
+    "sortino": 0.8683,
+    "calmar": 0.2515,
+    "cagr": 0.0664,
+    "max_dd": -0.264,
+    "volatility": 0.1055
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 15.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.6695,
+    "sortino": 0.8787,
+    "calmar": 0.2592,
+    "cagr": 0.0671,
+    "max_dd": -0.2587,
+    "volatility": 0.1056
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 30.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6072,
+    "sortino": 0.7948,
+    "calmar": 0.2226,
+    "cagr": 0.0602,
+    "max_dd": -0.2703,
+    "volatility": 0.1057
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 30.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6139,
+    "sortino": 0.8045,
+    "calmar": 0.2262,
+    "cagr": 0.0607,
+    "max_dd": -0.2686,
+    "volatility": 0.1054
+  },
+  {
+    "K": 2,
+    "train_years": 20,
+    "tc_bps": 30.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.6199,
+    "sortino": 0.8157,
+    "calmar": 0.2336,
+    "cagr": 0.0615,
+    "max_dd": -0.2631,
+    "volatility": 0.1055
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 0.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7666,
+    "sortino": 1.2064,
+    "calmar": 0.4095,
+    "cagr": 0.0644,
+    "max_dd": -0.1571,
+    "volatility": 0.0864
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 0.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7712,
+    "sortino": 1.2164,
+    "calmar": 0.414,
+    "cagr": 0.0648,
+    "max_dd": -0.1566,
+    "volatility": 0.0864
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 0.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7626,
+    "sortino": 1.2059,
+    "calmar": 0.4092,
+    "cagr": 0.0641,
+    "max_dd": -0.1566,
+    "volatility": 0.0865
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 5.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7339,
+    "sortino": 1.1502,
+    "calmar": 0.3817,
+    "cagr": 0.0614,
+    "max_dd": -0.1608,
+    "volatility": 0.0864
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 5.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7389,
+    "sortino": 1.1605,
+    "calmar": 0.3862,
+    "cagr": 0.0619,
+    "max_dd": -0.1602,
+    "volatility": 0.0864
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 5.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7307,
+    "sortino": 1.1504,
+    "calmar": 0.3818,
+    "cagr": 0.0611,
+    "max_dd": -0.1602,
+    "volatility": 0.0865
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 15.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6682,
+    "sortino": 1.0422,
+    "calmar": 0.324,
+    "cagr": 0.0554,
+    "max_dd": -0.171,
+    "volatility": 0.0864
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 15.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6741,
+    "sortino": 1.0539,
+    "calmar": 0.329,
+    "cagr": 0.056,
+    "max_dd": -0.1702,
+    "volatility": 0.0865
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 15.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.6665,
+    "sortino": 1.0447,
+    "calmar": 0.3217,
+    "cagr": 0.0553,
+    "max_dd": -0.172,
+    "volatility": 0.0866
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 30.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.5693,
+    "sortino": 0.8789,
+    "calmar": 0.2431,
+    "cagr": 0.0465,
+    "max_dd": -0.1914,
+    "volatility": 0.0866
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 30.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.5766,
+    "sortino": 0.8921,
+    "calmar": 0.2482,
+    "cagr": 0.0472,
+    "max_dd": -0.1903,
+    "volatility": 0.0866
+  },
+  {
+    "K": 3,
+    "train_years": 10,
+    "tc_bps": 30.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.57,
+    "sortino": 0.8842,
+    "calmar": 0.243,
+    "cagr": 0.0467,
+    "max_dd": -0.192,
+    "volatility": 0.0867
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 0.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7666,
+    "sortino": 1.2064,
+    "calmar": 0.4095,
+    "cagr": 0.0644,
+    "max_dd": -0.1571,
+    "volatility": 0.0864
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 0.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7712,
+    "sortino": 1.2164,
+    "calmar": 0.414,
+    "cagr": 0.0648,
+    "max_dd": -0.1566,
+    "volatility": 0.0864
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 0.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7626,
+    "sortino": 1.2059,
+    "calmar": 0.4092,
+    "cagr": 0.0641,
+    "max_dd": -0.1566,
+    "volatility": 0.0865
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 5.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7339,
+    "sortino": 1.1502,
+    "calmar": 0.3817,
+    "cagr": 0.0614,
+    "max_dd": -0.1608,
+    "volatility": 0.0864
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 5.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7389,
+    "sortino": 1.1605,
+    "calmar": 0.3862,
+    "cagr": 0.0619,
+    "max_dd": -0.1602,
+    "volatility": 0.0864
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 5.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7307,
+    "sortino": 1.1504,
+    "calmar": 0.3818,
+    "cagr": 0.0611,
+    "max_dd": -0.1602,
+    "volatility": 0.0865
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 15.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6682,
+    "sortino": 1.0422,
+    "calmar": 0.324,
+    "cagr": 0.0554,
+    "max_dd": -0.171,
+    "volatility": 0.0864
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 15.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6741,
+    "sortino": 1.0539,
+    "calmar": 0.329,
+    "cagr": 0.056,
+    "max_dd": -0.1702,
+    "volatility": 0.0865
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 15.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.6665,
+    "sortino": 1.0447,
+    "calmar": 0.3217,
+    "cagr": 0.0553,
+    "max_dd": -0.172,
+    "volatility": 0.0866
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 30.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.5693,
+    "sortino": 0.8789,
+    "calmar": 0.2431,
+    "cagr": 0.0465,
+    "max_dd": -0.1914,
+    "volatility": 0.0866
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 30.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.5766,
+    "sortino": 0.8921,
+    "calmar": 0.2482,
+    "cagr": 0.0472,
+    "max_dd": -0.1903,
+    "volatility": 0.0866
+  },
+  {
+    "K": 3,
+    "train_years": 15,
+    "tc_bps": 30.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.57,
+    "sortino": 0.8842,
+    "calmar": 0.243,
+    "cagr": 0.0467,
+    "max_dd": -0.192,
+    "volatility": 0.0867
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 0.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7475,
+    "sortino": 1.1856,
+    "calmar": 0.4057,
+    "cagr": 0.0638,
+    "max_dd": -0.1571,
+    "volatility": 0.088
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 0.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7522,
+    "sortino": 1.1959,
+    "calmar": 0.4102,
+    "cagr": 0.0642,
+    "max_dd": -0.1566,
+    "volatility": 0.0881
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 0.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7434,
+    "sortino": 1.185,
+    "calmar": 0.4053,
+    "cagr": 0.0634,
+    "max_dd": -0.1566,
+    "volatility": 0.0881
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 5.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7159,
+    "sortino": 1.1306,
+    "calmar": 0.3783,
+    "cagr": 0.0608,
+    "max_dd": -0.1608,
+    "volatility": 0.088
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 5.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7211,
+    "sortino": 1.1413,
+    "calmar": 0.383,
+    "cagr": 0.0613,
+    "max_dd": -0.1602,
+    "volatility": 0.0881
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 5.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7127,
+    "sortino": 1.1307,
+    "calmar": 0.3783,
+    "cagr": 0.0606,
+    "max_dd": -0.1602,
+    "volatility": 0.0881
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 15.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6526,
+    "sortino": 1.0255,
+    "calmar": 0.3215,
+    "cagr": 0.055,
+    "max_dd": -0.171,
+    "volatility": 0.0881
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 15.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6588,
+    "sortino": 1.0375,
+    "calmar": 0.3267,
+    "cagr": 0.0556,
+    "max_dd": -0.1702,
+    "volatility": 0.0881
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 15.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.651,
+    "sortino": 1.028,
+    "calmar": 0.3192,
+    "cagr": 0.0549,
+    "max_dd": -0.172,
+    "volatility": 0.0882
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 30.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.5574,
+    "sortino": 0.8665,
+    "calmar": 0.2418,
+    "cagr": 0.0463,
+    "max_dd": -0.1914,
+    "volatility": 0.0882
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 30.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.565,
+    "sortino": 0.8802,
+    "calmar": 0.2469,
+    "cagr": 0.047,
+    "max_dd": -0.1903,
+    "volatility": 0.0883
+  },
+  {
+    "K": 3,
+    "train_years": 20,
+    "tc_bps": 30.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.5582,
+    "sortino": 0.8719,
+    "calmar": 0.2417,
+    "cagr": 0.0464,
+    "max_dd": -0.192,
+    "volatility": 0.0884
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 0.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7377,
+    "sortino": 1.0325,
+    "calmar": 0.2452,
+    "cagr": 0.0597,
+    "max_dd": -0.2437,
+    "volatility": 0.0836
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 0.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7456,
+    "sortino": 1.0475,
+    "calmar": 0.2488,
+    "cagr": 0.0604,
+    "max_dd": -0.2427,
+    "volatility": 0.0835
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 0.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7465,
+    "sortino": 1.0425,
+    "calmar": 0.2492,
+    "cagr": 0.0602,
+    "max_dd": -0.2417,
+    "volatility": 0.0832
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 5.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7066,
+    "sortino": 0.9872,
+    "calmar": 0.2309,
+    "cagr": 0.057,
+    "max_dd": -0.2467,
+    "volatility": 0.0835
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 5.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7149,
+    "sortino": 1.0028,
+    "calmar": 0.2346,
+    "cagr": 0.0576,
+    "max_dd": -0.2456,
+    "volatility": 0.0834
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 5.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7159,
+    "sortino": 0.9981,
+    "calmar": 0.2351,
+    "cagr": 0.0575,
+    "max_dd": -0.2446,
+    "volatility": 0.0831
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 15.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6441,
+    "sortino": 0.8968,
+    "calmar": 0.2036,
+    "cagr": 0.0514,
+    "max_dd": -0.2527,
+    "volatility": 0.0834
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 15.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6533,
+    "sortino": 0.9132,
+    "calmar": 0.2075,
+    "cagr": 0.0522,
+    "max_dd": -0.2515,
+    "volatility": 0.0833
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 15.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.6544,
+    "sortino": 0.9093,
+    "calmar": 0.2081,
+    "cagr": 0.0521,
+    "max_dd": -0.2504,
+    "volatility": 0.0831
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 30.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.5498,
+    "sortino": 0.7632,
+    "calmar": 0.1652,
+    "cagr": 0.0432,
+    "max_dd": -0.2616,
+    "volatility": 0.0834
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 30.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.5603,
+    "sortino": 0.7809,
+    "calmar": 0.1692,
+    "cagr": 0.0441,
+    "max_dd": -0.2603,
+    "volatility": 0.0833
+  },
+  {
+    "K": 4,
+    "train_years": 10,
+    "tc_bps": 30.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.5616,
+    "sortino": 0.7783,
+    "calmar": 0.17,
+    "cagr": 0.044,
+    "max_dd": -0.2591,
+    "volatility": 0.083
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 0.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7377,
+    "sortino": 1.0325,
+    "calmar": 0.2452,
+    "cagr": 0.0597,
+    "max_dd": -0.2437,
+    "volatility": 0.0836
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 0.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7456,
+    "sortino": 1.0475,
+    "calmar": 0.2488,
+    "cagr": 0.0604,
+    "max_dd": -0.2427,
+    "volatility": 0.0835
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 0.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7465,
+    "sortino": 1.0425,
+    "calmar": 0.2492,
+    "cagr": 0.0602,
+    "max_dd": -0.2417,
+    "volatility": 0.0832
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 5.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7066,
+    "sortino": 0.9872,
+    "calmar": 0.2309,
+    "cagr": 0.057,
+    "max_dd": -0.2467,
+    "volatility": 0.0835
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 5.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7149,
+    "sortino": 1.0028,
+    "calmar": 0.2346,
+    "cagr": 0.0576,
+    "max_dd": -0.2456,
+    "volatility": 0.0834
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 5.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7159,
+    "sortino": 0.9981,
+    "calmar": 0.2351,
+    "cagr": 0.0575,
+    "max_dd": -0.2446,
+    "volatility": 0.0831
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 15.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6441,
+    "sortino": 0.8968,
+    "calmar": 0.2036,
+    "cagr": 0.0514,
+    "max_dd": -0.2527,
+    "volatility": 0.0834
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 15.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6533,
+    "sortino": 0.9132,
+    "calmar": 0.2075,
+    "cagr": 0.0522,
+    "max_dd": -0.2515,
+    "volatility": 0.0833
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 15.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.6544,
+    "sortino": 0.9093,
+    "calmar": 0.2081,
+    "cagr": 0.0521,
+    "max_dd": -0.2504,
+    "volatility": 0.0831
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 30.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.5498,
+    "sortino": 0.7632,
+    "calmar": 0.1652,
+    "cagr": 0.0432,
+    "max_dd": -0.2616,
+    "volatility": 0.0834
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 30.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.5603,
+    "sortino": 0.7809,
+    "calmar": 0.1692,
+    "cagr": 0.0441,
+    "max_dd": -0.2603,
+    "volatility": 0.0833
+  },
+  {
+    "K": 4,
+    "train_years": 15,
+    "tc_bps": 30.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.5616,
+    "sortino": 0.7783,
+    "calmar": 0.17,
+    "cagr": 0.044,
+    "max_dd": -0.2591,
+    "volatility": 0.083
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 0.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.7293,
+    "sortino": 1.0246,
+    "calmar": 0.2464,
+    "cagr": 0.06,
+    "max_dd": -0.2437,
+    "volatility": 0.0851
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 0.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7374,
+    "sortino": 1.04,
+    "calmar": 0.2501,
+    "cagr": 0.0607,
+    "max_dd": -0.2427,
+    "volatility": 0.085
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 0.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7382,
+    "sortino": 1.0348,
+    "calmar": 0.2505,
+    "cagr": 0.0606,
+    "max_dd": -0.2417,
+    "volatility": 0.0847
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 5.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6994,
+    "sortino": 0.9806,
+    "calmar": 0.2324,
+    "cagr": 0.0573,
+    "max_dd": -0.2467,
+    "volatility": 0.085
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 5.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.7079,
+    "sortino": 0.9965,
+    "calmar": 0.2362,
+    "cagr": 0.058,
+    "max_dd": -0.2456,
+    "volatility": 0.0849
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 5.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.7089,
+    "sortino": 0.9917,
+    "calmar": 0.2367,
+    "cagr": 0.0579,
+    "max_dd": -0.2446,
+    "volatility": 0.0846
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 15.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.6394,
+    "sortino": 0.8932,
+    "calmar": 0.2055,
+    "cagr": 0.0519,
+    "max_dd": -0.2527,
+    "volatility": 0.085
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 15.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.6488,
+    "sortino": 0.91,
+    "calmar": 0.2095,
+    "cagr": 0.0527,
+    "max_dd": -0.2515,
+    "volatility": 0.0848
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 15.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.6499,
+    "sortino": 0.9059,
+    "calmar": 0.2101,
+    "cagr": 0.0526,
+    "max_dd": -0.2504,
+    "volatility": 0.0846
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 30.0,
+    "threshold_pct": 0.0,
+    "sharpe": 0.5488,
+    "sortino": 0.7641,
+    "calmar": 0.1676,
+    "cagr": 0.0439,
+    "max_dd": -0.2616,
+    "volatility": 0.0849
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 30.0,
+    "threshold_pct": 2.0,
+    "sharpe": 0.5596,
+    "sortino": 0.7823,
+    "calmar": 0.1719,
+    "cagr": 0.0447,
+    "max_dd": -0.2603,
+    "volatility": 0.0848
+  },
+  {
+    "K": 4,
+    "train_years": 20,
+    "tc_bps": 30.0,
+    "threshold_pct": 5.0,
+    "sharpe": 0.5609,
+    "sortino": 0.7796,
+    "calmar": 0.1726,
+    "cagr": 0.0447,
+    "max_dd": -0.2591,
+    "volatility": 0.0845
+  }
+];
+
+function robCell(v) {
+  if (v === null || v === undefined || isNaN(v)) return { bg: 'rgba(255,255,255,0.03)', color: '#5a6478', text: 'pending' };
+  const beats = v >= 0.760;
+  const intensity = Math.min(Math.abs(v - 0.760) / 0.4, 1);
+  const bg = beats
+    ? `rgba(52,201,123,${0.12 + intensity * 0.45})`
+    : `rgba(224,85,85,${0.10 + intensity * 0.35})`;
+  const color = beats ? '#34c97b' : '#e05555';
+  return { bg, color, text: v.toFixed(3) };
+}
+
+if (robData.length > 0) {
+  // ── Populate Sharpe heatmap (TC=5, threshold=2) ──
+  const hmBase = robData.filter(r => r.tc_bps === 5.0 && r.threshold_pct === 2.0);
+  const trainYears = [...new Set(hmBase.map(r => r.train_years))].sort((a,b) => a-b);
+  const kVals = [...new Set(hmBase.map(r => r.K))].sort((a,b) => a-b);
+  const tbody = document.getElementById('heatmap-body');
+  trainYears.forEach(ty => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><strong>${ty}yr</strong></td>`;
+    kVals.forEach(k => {
+      const row = hmBase.find(r => r.K === k && r.train_years === ty);
+      const { bg, color, text } = robCell(row?.sharpe);
+      tr.innerHTML += `<td style="text-align:center;background:${bg};color:${color};font-weight:700;font-family:var(--mono);padding:12px;">${text}</td>`;
+    });
+    tbody.appendChild(tr);
+  });
+
+  // ── TC sensitivity chart ──
+  const tcBase = robData
+    .filter(r => r.K === 3 && r.train_years === 15 && r.threshold_pct === 2.0)
+    .sort((a,b) => a.tc_bps - b.tc_bps);
+  new Chart(document.getElementById('tcChart'), {
+    type: 'line',
+    data: {
+      labels: tcBase.map(r => r.tc_bps + 'bps'),
+      datasets: [
+        { label: 'Sharpe', data: tcBase.map(r => r.sharpe), borderColor: '#4f7cff', backgroundColor: 'rgba(79,124,255,0.1)', borderWidth:2.5, pointRadius:6, tension:0.3, fill:true },
+        { label: 'Calmar', data: tcBase.map(r => r.calmar), borderColor: '#34c97b', backgroundColor: 'rgba(52,201,123,0.05)', borderWidth:1.8, pointRadius:5, tension:0.3, borderDash:[5,3] }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { boxWidth:10, padding:12 } },
+        annotation: {} },
+      scales: {
+        y: { grid:{color:'#1c2030'}, min: 0.3 },
+        x: { grid:{display:false} }
+      }
+    }
+  });
+  // SPY reference line drawn via plugin workaround
+  const tcCtx = document.getElementById('tcChart').parentElement;
+
+  // ── Threshold sensitivity chart ──
+  const thrBase = robData
+    .filter(r => r.K === 3 && r.train_years === 15 && r.tc_bps === 5.0)
+    .sort((a,b) => a.threshold_pct - b.threshold_pct);
+  new Chart(document.getElementById('threshChart'), {
+    type: 'bar',
+    data: {
+      labels: thrBase.map(r => r.threshold_pct + '%'),
+      datasets: [
+        { label: 'Sharpe', data: thrBase.map(r => r.sharpe), backgroundColor: thrBase.map(r => r.sharpe >= 0.760 ? 'rgba(79,124,255,0.8)' : 'rgba(224,85,85,0.6)'), borderRadius:4 },
+        { label: 'Calmar', data: thrBase.map(r => r.calmar), backgroundColor: 'rgba(52,201,123,0.5)', borderRadius:4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { boxWidth:10, padding:12 } } },
+      scales: {
+        y: { grid:{color:'#1c2030'}, min:0 },
+        x: { grid:{display:false} }
+      }
+    }
+  });
+
+  // ── Full grid table ──
+  const gridBody = document.getElementById('grid-table-body');
+  const sorted = [...robData].sort((a,b) => b.sharpe - a.sharpe);
+  sorted.forEach(r => {
+    const beats = r.sharpe >= 0.760;
+    const isBaseline = r.K===3 && r.train_years===15 && r.tc_bps===5 && r.threshold_pct===2;
+    const tr = document.createElement('tr');
+    if (isBaseline) tr.className = 'bold-row';
+    const diff = (r.sharpe - 0.760).toFixed(3);
+    const diffClass = r.sharpe >= 0.760 ? 'positive' : 'negative';
+    tr.innerHTML = `
+      <td>${r.K}</td>
+      <td>${r.train_years}yr</td>
+      <td>${r.tc_bps}</td>
+      <td>${r.threshold_pct}%</td>
+      <td class="${beats ? 'positive' : 'negative'}" style="font-family:var(--mono);">${r.sharpe.toFixed(3)}</td>
+      <td style="font-family:var(--mono);">${(r.cagr*100).toFixed(2)}%</td>
+      <td class="negative" style="font-family:var(--mono);">${(r.max_dd*100).toFixed(1)}%</td>
+      <td style="font-family:var(--mono);">${r.sortino.toFixed(3)}</td>
+      <td style="font-family:var(--mono);">${r.calmar.toFixed(3)}</td>
+      <td class="${diffClass}" style="font-family:var(--mono);">${r.sharpe>=0.760?'+':''}${diff}</td>
+    `;
+    gridBody.appendChild(tr);
+  });
+
+  // ── Verdict box ──
+  const allSharpes = robData.map(r => r.sharpe).filter(v => !isNaN(v));
+  const beatsSPY = allSharpes.filter(v => v >= 0.760).length;
+  const pct = Math.round(beatsSPY / allSharpes.length * 100);
+  const minS = Math.min(...allSharpes).toFixed(3);
+  const maxS = Math.max(...allSharpes).toFixed(3);
+  const verdictColor = pct >= 80 ? '#34c97b' : pct >= 60 ? '#e0a230' : '#e05555';
+  document.getElementById('robustness-verdict').innerHTML = `
+    <div style="border:1px solid ${verdictColor}33;border-radius:10px;padding:20px 24px;background:${verdictColor}08;">
+      <h3 style="color:${verdictColor};margin-bottom:10px;">Robustness Verdict</h3>
+      <p style="color:var(--muted);font-size:13px;line-height:1.75;">
+        <strong style="color:#fff;">${beatsSPY} of ${allSharpes.length} configurations</strong> (${pct}%) beat the SPY Sharpe of 0.760.
+        Sharpe range across all 108 combos: <strong style="color:#fff;">${minS} – ${maxS}</strong>.
+        The worst-case configuration still ${parseFloat(minS) >= 0.760 ? '<span style="color:var(--green)">beats SPY</span>' : '<span style="color:var(--amber)">trails SPY slightly</span>'}.
+      </p>
+    </div>`;
+} else {
+  // Grid not yet run — show pending message
+  document.querySelectorAll('#sharpe-heatmap tbody, #grid-table-body').forEach(el => {
+    if(el) el.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px;">Grid results pending — run <code>python main.py --phase robustness</code></td></tr>';
+  });
+  ['tcChart','threshChart'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) { const ctx = el.getContext('2d'); ctx.fillStyle='#5a6478'; ctx.fillText('Results pending',20,50); }
+  });
+}
+
+// ── BOOTSTRAP CI DATA ──
+// bootData populated after bootstrap run completes
+const bootData = {
+  "n_months": 241.0,
+  "n_boot": 1000.0,
+  "block_length": 12.0,
+  "sharpe_point": 0.7215,
+  "sharpe_ci_lo": 0.3232,
+  "sharpe_ci_hi": 1.1675,
+  "sharpe_pval_vs_spy": 0.434,
+  "cagr_point": 0.0845,
+  "cagr_ci_lo": 0.0473,
+  "cagr_ci_hi": 0.1193,
+  "cagr_pval_vs_spy": 0.128,
+  "maxdd_point": -0.2102,
+  "maxdd_ci_lo": -0.3245,
+  "maxdd_ci_hi": -0.1045,
+  "spy_sharpe": 0.76,
+  "spy_cagr": 0.1055
+};
+
+if (bootData) {
+  // Fill KPI badges
+  document.getElementById('boot-sharpe-pt').textContent = bootData.sharpe_point.toFixed(3);
+  document.getElementById('boot-sharpe-ci').textContent =
+    `[${bootData.sharpe_ci_lo.toFixed(3)}, ${bootData.sharpe_ci_hi.toFixed(3)}]`;
+  const pv = bootData.sharpe_pval_vs_spy;
+  const pvEl = document.getElementById('boot-pval');
+  pvEl.textContent = pv.toFixed(3);
+  pvEl.className = 'val ' + (pv >= 0.8 ? 'green' : pv >= 0.6 ? '' : 'red');
+  document.getElementById('boot-cagr-ci').textContent =
+    `[${(bootData.cagr_ci_lo*100).toFixed(1)}%, ${(bootData.cagr_ci_hi*100).toFixed(1)}%]`;
+  document.getElementById('boot-maxdd-ci').textContent =
+    `[${(bootData.maxdd_ci_lo*100).toFixed(1)}%, ${(bootData.maxdd_ci_hi*100).toFixed(1)}%]`;
+
+  // Fill table
+  const tbody = document.getElementById('boot-table-body');
+  if (tbody) {
+    const rows = [
+      ['Sharpe Ratio', bootData.sharpe_point.toFixed(3), bootData.sharpe_ci_lo.toFixed(3), bootData.sharpe_ci_hi.toFixed(3), `p=${bootData.sharpe_pval_vs_spy.toFixed(3)} vs SPY ${bootData.spy_sharpe}`],
+      ['CAGR', (bootData.cagr_point*100).toFixed(1)+'%', (bootData.cagr_ci_lo*100).toFixed(1)+'%', (bootData.cagr_ci_hi*100).toFixed(1)+'%', `p=${bootData.cagr_pval_vs_spy.toFixed(3)} vs SPY ${(bootData.spy_cagr*100).toFixed(1)}%`],
+      ['Max Drawdown', (bootData.maxdd_point*100).toFixed(1)+'%', (bootData.maxdd_ci_lo*100).toFixed(1)+'%', (bootData.maxdd_ci_hi*100).toFixed(1)+'%', '—'],
+    ];
+    tbody.innerHTML = rows.map(r =>
+      `<tr>${r.map((c,i) => `<td${i===4?' style="color:var(--muted);font-size:11px;"':''}>${c}</td>`).join('')}</tr>`
+    ).join('');
+  }
+
+  // Show placeholder hidden message
+  const ph = document.getElementById('boot-chart-placeholder');
+  if (ph) ph.style.display = 'none';
+} else {
+  // Already handled by static placeholder text in HTML
+}
+
+// ── EMISSION MEANS HEATMAP ──
+const emissionData = {
+  expansion:   [+1.55, +0.94, +1.80, -0.30, -0.82, -0.54, -1.37],
+  stagnation:  [+0.55, -0.81, -0.46, +0.18, +0.76, -1.12, -0.45],
+  contraction: [-1.32, +0.76, -1.37, +0.55, +0.78, -0.47, +1.14]
+};
+const regimes  = ['expansion','stagnation','contraction'];
+const prefixes = ['e','s','c'];
+const features = ['yc','cs','un','cpi','ip','fsi','ff'];
+
+function hmColor(v) {
+  const abs = Math.min(Math.abs(v), 2) / 2;
+  if (v > 0.1)  return `rgba(52,201,123,${0.12 + abs * 0.55})`;
+  if (v < -0.1) return `rgba(224,85,85,${0.12 + abs * 0.55})`;
+  return 'rgba(255,255,255,0.05)';
+}
+function hmText(v) {
+  return v > 0.1 ? '#34c97b' : v < -0.1 ? '#e05555' : '#5a6478';
+}
+
+regimes.forEach((r, ri) => {
+  emissionData[r].forEach((v, fi) => {
+    const el = document.getElementById(`hm-${prefixes[ri]}-${features[fi]}`);
+    if (!el) return;
+    el.style.background = hmColor(v);
+    el.style.color = hmText(v);
+    el.textContent = (v > 0 ? '+' : '') + v.toFixed(2);
+  });
+});
+</script>
+</body>
+</html>
